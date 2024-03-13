@@ -29,10 +29,7 @@ pub struct Uart<'a> {
     tx_len: Cell<usize>,
     tx_index: Cell<usize>,
 
-    rx_buffer: TakeCell<'static, [u8]>,
-    rx_len: Cell<usize>,
-    rx_index: Cell<usize>,
-    rx_timeout: Cell<u8>,
+    rx_state: Cell<Option<ReceiveState>>,
 }
 
 #[derive(Copy, Clone)]
@@ -65,10 +62,7 @@ impl<'a> Uart<'a> {
             tx_buffer: TakeCell::empty(),
             tx_len: Cell::new(0),
             tx_index: Cell::new(0),
-            rx_buffer: TakeCell::empty(),
-            rx_len: Cell::new(0),
-            rx_index: Cell::new(0),
-            rx_timeout: Cell::new(0),
+            rx_state: Cell::new(Some(ReceiveState::Idle)),
         }
     }
 
@@ -104,6 +98,7 @@ impl<'a> Uart<'a> {
         regs.intr_state.write(INTR::TX_EMPTY::SET);
     }
 
+    // TODO: This should be handled by the state transition function.
     fn enable_rx_interrupt(&self) {
         let regs = self.registers;
 
@@ -111,6 +106,8 @@ impl<'a> Uart<'a> {
         regs.intr_enable.modify(INTR::RX_WATERMARK::SET);
         regs.fifo_ctrl.write(FIFO_CTRL::RXILVL.val(0_u32));
 
+        // TODO: This doesn't belong here -- should be in the state machine
+        // logic.
         // In cases where the RX FIFO isn't empty the edge-triggered watermark will never trigger.
         // If there is already data pending, set a deferred call to read the data instead.
         if !regs.status.is_set(STATUS::RXEMPTY) {
@@ -119,6 +116,7 @@ impl<'a> Uart<'a> {
         }
     }
 
+    // TODO: This should be handled by the state transition logic.
     fn disable_rx_interrupt(&self) {
         let regs = self.registers;
 
@@ -136,6 +134,8 @@ impl<'a> Uart<'a> {
         regs.timeout_ctrl
             .write(TIMEOUT_CTRL::VAL.val(interbyte_timeout as u32));
 
+        // TODO: Bug: This zeros the interbyte timeout that the previous
+        // statement set.
         // Enable RX timeout feature
         regs.timeout_ctrl.write(TIMEOUT_CTRL::EN::SET);
 
@@ -321,6 +321,7 @@ impl<'a> Uart<'a> {
 
 impl hil::uart::Configure for Uart<'_> {
     fn configure(&self, params: hil::uart::Parameters) -> Result<(), ErrorCode> {
+        // TODO: Bug: This should return an error if a RX is in progress.
         let regs = self.registers;
         // We can set the baud rate.
         self.set_baud_rate(params.baud_rate)?;
@@ -381,7 +382,39 @@ impl<'a> hil::uart::Transmit<'a> for Uart<'a> {
     }
 }
 
-/* UART receive is not implemented yet, mostly due to a lack of tests avaliable */
+enum ReceiveState {
+    /// We are not currently performing a receive. The UART starts in the Idle
+    /// state. It can only transition into Idle from PendingCallback, and from
+    /// Idle it can only transition into Receiving.
+    ///
+    /// RX interrupts are disabled in the Idle state.
+    Idle,
+
+    /// We are currently performing a receive. The UART can only transition into
+    /// Receive from Idle, and from Receive it can only transition into
+    /// PendingCallback.
+    ///
+    /// RX interrupts are enabled in the Receiving state.
+    Receiving {
+        buffer: &'static mut [u8],
+        received: usize,
+        len: usize,
+    },
+
+    /// The current receive has completed, but we have not issued its callback
+    /// yet. The UART can only transition into PendingCallback from Receiving,
+    /// and from PendingCallback it can only transition into Idle.
+    ///
+    /// RX interrupts are enabled in the PendingCallback state. If the UART is
+    /// going to return to calling code in the PendingCallback state and no
+    /// interrupts are pending, the UART will set the deferred call.
+    PendingCallback {
+        buffer: &'static mut [u8],
+        received: usize,
+        error: uart::Error,
+    },
+}
+
 impl<'a> hil::uart::Receive<'a> for Uart<'a> {
     fn set_receive_client(&self, client: &'a dyn hil::uart::ReceiveClient) {
         self.rx_client.set(client);
@@ -400,7 +433,6 @@ impl<'a> hil::uart::Receive<'a> for Uart<'a> {
 
         self.rx_buffer.replace(rx_buffer);
         self.rx_len.set(rx_len);
-        self.rx_timeout.set(0);
         self.rx_index.set(0);
 
         Ok(())
@@ -428,7 +460,6 @@ impl<'a> hil::uart::ReceiveAdvanced<'a> for Uart<'a> {
 
         self.rx_buffer.replace(rx_buffer);
         self.rx_len.set(rx_len);
-        self.rx_timeout.set(interbyte_timeout);
         self.rx_index.set(0);
 
         Ok(())
