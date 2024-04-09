@@ -62,9 +62,16 @@
 // code in this crate
 #![cfg_attr(not(feature = "register_types"), forbid(unsafe_code))]
 
+mod access;
+mod data_type;
+mod fake_register;
 pub mod fields;
 pub mod interfaces;
+mod long_names;
 pub mod macros;
+mod peripheral;
+pub mod reexport;
+mod register;
 
 #[cfg(feature = "register_types")]
 pub mod registers;
@@ -73,6 +80,12 @@ pub mod debug;
 
 mod local_register;
 pub use local_register::LocalRegisterCopy;
+
+pub use access::{Access, IsSafe, IsUnsafe, NoAccess, Safe, Unsafe};
+pub use data_type::{ArrayDataType, DataType};
+pub use fake_register::FakeRegister;
+pub use long_names::{LongNames, RegisterLongName};
+pub use register::Register;
 
 use core::fmt::Debug;
 use core::ops::{BitAnd, BitOr, BitOrAssign, Not, Shl, Shr};
@@ -128,9 +141,6 @@ UIntLike_impl_for!(u64);
 UIntLike_impl_for!(u128);
 UIntLike_impl_for!(usize);
 
-/// Descriptive name for each register.
-pub trait RegisterLongName {}
-
-// Useful implementation for when no RegisterLongName is required
-// (e.g. no fields need to be accessed, just the raw register values)
-impl RegisterLongName for () {}
+/// Error indicating an array index was out of bounds.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct OutOfBounds;
