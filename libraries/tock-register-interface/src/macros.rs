@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 // Copyright Tock Contributors 2022.
 
-//! Macros for cleanly defining peripheral registers.
+//! Older macros for definining peripheral registers. For new peripheral
+//! definitions, please use `peripheral!` instead.
 
 #[macro_export]
 macro_rules! register_fields {
