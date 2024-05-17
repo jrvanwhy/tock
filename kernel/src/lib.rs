@@ -134,6 +134,22 @@ mod process_printer;
 mod process_standard;
 mod syscall_driver;
 
+#[allow(unused)]
+#[inline(always)]
+fn puts(msg: &str) {
+    for &b in msg.as_bytes() {
+        while unsafe {
+            core::ptr::read_volatile(0x4000_0014 as *mut u32) & 0x01 != 0
+        } {}
+        unsafe {
+            core::ptr::write_volatile(0x4000_001c as *mut u8, b);
+        }
+    }
+    while unsafe {
+        core::ptr::read_volatile(0x4000_0014 as *mut u32) & 0b1000 == 0
+    } {}
+}
+
 // Core resources exposed as `kernel::Type`.
 pub use crate::errorcode::ErrorCode;
 pub use crate::kernel::Kernel;

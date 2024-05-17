@@ -436,6 +436,10 @@ impl Kernel {
         resources.watchdog().setup();
         // Before we begin, verify that deferred calls were soundly setup.
         DeferredCall::verify_setup();
+        crate::puts("kernel_loop: about to begin loop\n");
+        if self.processes.iter().all(Option::is_none) {
+            crate::puts("kernel_loop: no processes\n");
+        }
         loop {
             self.kernel_loop_operation(resources, chip, ipc, false, capability);
         }

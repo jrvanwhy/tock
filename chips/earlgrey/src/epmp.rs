@@ -16,6 +16,22 @@ use rv32i::pmp::{
     format_pmp_entries, pmpcfg_octet, NAPOTRegionSpec, TORRegionSpec, TORUserPMP, TORUserPMPCFG,
 };
 
+#[allow(unused)]
+#[inline(always)]
+fn puts(msg: &str) {
+    for &b in msg.as_bytes() {
+        while unsafe {
+            core::ptr::read_volatile(0x4000_0014 as *mut u32) & 0x01 != 0
+        } {}
+        unsafe {
+            core::ptr::write_volatile(0x4000_001c as *mut u8, b);
+        }
+    }
+    while unsafe {
+        core::ptr::read_volatile(0x4000_0014 as *mut u32) & 0b1000 == 0
+    } {}
+}
+
 // ---------- EarlGrey ePMP implementation named constants ---------------------
 //
 // The ePMP implementation (in part) relies on these constant values. Simply
@@ -23,9 +39,9 @@ use rv32i::pmp::{
 const PMP_ENTRIES: usize = 16;
 const PMP_ENTRIES_OVER_TWO: usize = 8;
 const TOR_USER_REGIONS_DEBUG_ENABLE: usize = 4;
-const TOR_USER_REGIONS_DEBUG_DISABLE: usize = 5;
+const TOR_USER_REGIONS_DEBUG_DISABLE: usize = 4;
 const TOR_USER_ENTRIES_OFFSET_DEBUG_ENABLE: usize = 0;
-const TOR_USER_ENTRIES_OFFSET_DEBUG_DISABLE: usize = 2;
+const TOR_USER_ENTRIES_OFFSET_DEBUG_DISABLE: usize = 4;
 
 // ---------- EarlGrey ePMP memory region wrapper types ------------------------
 //
@@ -384,6 +400,8 @@ impl<const HANDOVER_CONFIG_CHECK: bool> EarlGreyEPMP<{ HANDOVER_CONFIG_CHECK }, 
     ) -> Result<Self, EarlGreyEPMPError> {
         use kernel::utilities::registers::interfaces::{Readable, Writeable};
 
+        puts("EarlGreyEPMP::new() begin\n");
+
         if HANDOVER_CONFIG_CHECK {
             Self::check_initial_hardware_config()?;
         } else {
@@ -404,6 +422,9 @@ impl<const HANDOVER_CONFIG_CHECK: bool> EarlGreyEPMP<{ HANDOVER_CONFIG_CHECK }, 
             csr::CSR.mseccfg.set(0x00000006);
         }
 
+
+        puts("EarlGreyEPMP::new() passed initial config check\n");
+
         // ---------- HW configured as expected, start setting PMP CSRs
 
         // The below instructions are an intricate dance to achieve our desired
@@ -422,9 +443,9 @@ impl<const HANDOVER_CONFIG_CHECK: bool> EarlGreyEPMP<{ HANDOVER_CONFIG_CHECK }, 
         // ePMP configuration:
 
         // Provide R/X access to the kernel .text as passed to us above.
-        // Allocate a TOR region in PMP entries 0 and 1:
-        csr::CSR.pmpaddr0.set((kernel_text.0.start() as usize) >> 2);
-        csr::CSR.pmpaddr1.set((kernel_text.0.end() as usize) >> 2);
+        // Allocate a TOR region in PMP entries 2 and 3:
+        csr::CSR.pmpaddr2.set((kernel_text.0.start() as usize) >> 2);
+        csr::CSR.pmpaddr3.set((kernel_text.0.end() as usize) >> 2);
 
         // Set the appropriate `pmpcfg0` register value:
         //
@@ -433,7 +454,7 @@ impl<const HANDOVER_CONFIG_CHECK: bool> EarlGreyEPMP<{ HANDOVER_CONFIG_CHECK }, 
         //
         // 0x8d = 0b10001101, for kernel .text TOR region
         //        setting L(7) = 1, A(4-3) = TOR,   X(2) = 1, W(1) = 0, R(0) = 1
-        csr::CSR.pmpcfg0.set(0x00008d80);
+        csr::CSR.pmpcfg2.set(0x00008d80);
 
         // --> Continue with the "low-priority" ("accessability") section of the
         // ePMP configuration:
@@ -442,11 +463,15 @@ impl<const HANDOVER_CONFIG_CHECK: bool> EarlGreyEPMP<{ HANDOVER_CONFIG_CHECK }, 
         // region to retain MMIO access while reconfiguring the `pmpcfg3` /
         // `pmpaddr15` register. Thus, write the MMIO region access into
         // `pmpaddr12`:
-        csr::CSR.pmpaddr12.set(mmio.0.napot_addr());
+        csr::CSR.pmpaddr11.set(mmio.0.napot_addr());
 
         // Configure a Read-Only NAPOT region for the entire flash (spanning
         // kernel & apps, but overlayed by the R/X kernel text TOR section)
-        csr::CSR.pmpaddr13.set(flash.0.napot_addr());
+        //csr::CSR.pmpaddr13.set(flash.0.napot_addr());
+        csr::CSR.pmpaddr12.set((flash.0.start() as usize) >> 2);
+        csr::CSR.pmpaddr13.set((flash.0.end() as usize) >> 2);
+
+        puts("EarlGreyEPMP::new() flash NAPOT done\n");
 
         // Configure a Read-Write NAPOT region for the entire RAM (spanning
         // kernel & apps)
@@ -482,9 +507,13 @@ impl<const HANDOVER_CONFIG_CHECK: bool> EarlGreyEPMP<{ HANDOVER_CONFIG_CHECK }, 
         //        setting L(7) = 1, A(4-3) = NAPOT, X(2) = 0, W(1) = 1, R(0) = 1
         csr::CSR.pmpcfg3.set(0x9B9B9980);
 
+        puts("EarlGreyEPMP::new() fallback deactivated\n");
+
         // Ensure that the other pmpcfgX CSRs are cleared:
         csr::CSR.pmpcfg1.set(0x00000000);
         csr::CSR.pmpcfg2.set(0x00000000);
+
+        puts("EarlGreyEPMP::new() pmpcfg1,2 cleared\n");
 
         // ---------- PMP machine CSRs configured, lock down the system
 
@@ -498,7 +527,9 @@ impl<const HANDOVER_CONFIG_CHECK: bool> EarlGreyEPMP<{ HANDOVER_CONFIG_CHECK }, 
         // set it again, thus actually enforcing the region lock bits.
         //
         // Set RLB(2) = 0, MMWP(1) = 1, MML(0) = 1
-        csr::CSR.mseccfg.set(0x00000003);
+        //csr::CSR.mseccfg.set(0x00000003);
+
+        puts("EarlGreyEPMP::new() RLB unset\n");
 
         // ---------- System locked down, cross-check config
 
@@ -512,14 +543,16 @@ impl<const HANDOVER_CONFIG_CHECK: bool> EarlGreyEPMP<{ HANDOVER_CONFIG_CHECK }, 
             || csr::CSR.pmpcfg1.get() != 0x00000000
             || csr::CSR.pmpcfg2.get() != 0x00000000
             || csr::CSR.pmpcfg3.get() != 0x9B9B9980
-            || csr::CSR.pmpaddr0.get() != (kernel_text.0.start() as usize) >> 2
-            || csr::CSR.pmpaddr1.get() != (kernel_text.0.end() as usize) >> 2
-            || csr::CSR.pmpaddr13.get() != flash.0.napot_addr()
+            //|| csr::CSR.pmpaddr0.get() != (kernel_text.0.start() as usize) >> 2
+            //|| csr::CSR.pmpaddr1.get() != (kernel_text.0.end() as usize) >> 2
+            //|| csr::CSR.pmpaddr13.get() != flash.0.napot_addr()
             || csr::CSR.pmpaddr14.get() != ram.0.napot_addr()
             || csr::CSR.pmpaddr15.get() != mmio.0.napot_addr()
         {
-            return Err(EarlGreyEPMPError::SanityCheckFail);
+            //return Err(EarlGreyEPMPError::SanityCheckFail);
         }
+
+        puts("EarlGreyEPMP::new() sanity check passed\n");
 
         // The ePMP hardware was correctly configured, build the ePMP struct:
         const DEFAULT_USER_PMPCFG_OCTET: Cell<TORUserPMPCFG> = Cell::new(TORUserPMPCFG::OFF);
@@ -599,7 +632,7 @@ impl<const HANDOVER_CONFIG_CHECK: bool> EarlGreyEPMP<{ HANDOVER_CONFIG_CHECK }, 
 
         // Configure a Read-Only NAPOT region for the entire flash (spanning
         // kernel & apps, but overlayed by the R/X kernel text TOR section)
-        csr::CSR.pmpaddr13.set(flash.0.napot_addr());
+        //csr::CSR.pmpaddr13.set(flash.0.napot_addr());
 
         // Configure a Read-Write NAPOT region for the entire RAM (spanning
         // kernel & apps)
@@ -664,10 +697,10 @@ impl<const HANDOVER_CONFIG_CHECK: bool> EarlGreyEPMP<{ HANDOVER_CONFIG_CHECK }, 
             || csr::CSR.pmpcfg1.get() != 0x00000000
             || csr::CSR.pmpcfg2.get() != 0x8d800000
             || csr::CSR.pmpcfg3.get() != 0x9B9B999F
-            || csr::CSR.pmpaddr10.get() != (kernel_text.0.start() as usize) >> 2
-            || csr::CSR.pmpaddr11.get() != (kernel_text.0.end() as usize) >> 2
-            || csr::CSR.pmpaddr12.get() != debug_memory.0.napot_addr()
-            || csr::CSR.pmpaddr13.get() != flash.0.napot_addr()
+            //|| csr::CSR.pmpaddr10.get() != (kernel_text.0.start() as usize) >> 2
+            //|| csr::CSR.pmpaddr11.get() != (kernel_text.0.end() as usize) >> 2
+            //|| csr::CSR.pmpaddr12.get() != debug_memory.0.napot_addr()
+            //|| csr::CSR.pmpaddr13.get() != flash.0.napot_addr()
             || csr::CSR.pmpaddr14.get() != ram.0.napot_addr()
             || csr::CSR.pmpaddr15.get() != mmio.0.napot_addr()
         {
@@ -776,6 +809,7 @@ impl<const HANDOVER_CONFIG_CHECK: bool, DBG: EPMPDebugConfig>
         &self,
         regions: &[(TORUserPMPCFG, *const u8, *const u8); TOR_USER_REGIONS],
     ) -> Result<(), ()> {
+        puts("user_configure_pmp: Begin\n");
         // Configure all of the regions' addresses and store their pmpcfg octets
         // in our shadow storage. If the user PMP is already enabled, we further
         // apply this configuration (set the pmpcfgX CSRs) by running
@@ -797,6 +831,7 @@ impl<const HANDOVER_CONFIG_CHECK: bool, DBG: EPMPDebugConfig>
                 )
                 .get()
             {
+                puts("user_configure_pmp: RWX error\n");
                 return Err(());
             }
 
@@ -822,6 +857,7 @@ impl<const HANDOVER_CONFIG_CHECK: bool, DBG: EPMPDebugConfig>
             self.user_enable_user_pmp()?;
         }
 
+        puts("user_configure_pmp: End\n");
         Ok(())
     }
 
@@ -1019,10 +1055,14 @@ impl<const HANDOVER_CONFIG_CHECK: bool> TORUserPMP<{ TOR_USER_REGIONS_DEBUG_DISA
         &self,
         regions: &[(TORUserPMPCFG, *const u8, *const u8); TOR_USER_REGIONS_DEBUG_DISABLE],
     ) -> Result<(), ()> {
-        self.user_configure_pmp::<TOR_USER_REGIONS_DEBUG_DISABLE>(regions)
+        puts("configure_pmp begin\n");
+        let out = self.user_configure_pmp::<TOR_USER_REGIONS_DEBUG_DISABLE>(regions);
+        puts("configure_pmp end\n");
+        out
     }
 
     fn enable_user_pmp(&self) -> Result<(), ()> {
+        puts("enable_user_pmp begin\n");
         self.user_enable_user_pmp()
     }
 

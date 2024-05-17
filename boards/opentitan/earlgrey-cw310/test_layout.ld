@@ -26,11 +26,16 @@ MEMORY
 
 SECTIONS {
     /* Export the start & end of SRAM and flash as symbols for setting
-     * up the ePMP. Flash includes rom, prog and flash storage, such
-     * that we can use a single NAPOT region. The .text section will
-     * be made executable by a separate PMP region.
+     * up the ePMP. Flash includes an optional rom_ext, "rom" (the kernel),
+     * prog and flash storage, such that we can use a single NAPOT region. The
+     * .text section will be made executable by a separate PMP region.
      */
     _sflash = ORIGIN(rom);
+    /* The start address of the kernel. In out-of-tree layouts that support
+     * ROM_EXT operation, this differ from _sflash (_sflash is the start of the
+     * ROM_EXT while _skernel comes after the ROM_EXT).
+     */
+    _skernel = ORIGIN(rom);
     _eflash = ORIGIN(fs) + LENGTH(fs);
 
     _ssram  = ORIGIN(ram) - 0x650;
