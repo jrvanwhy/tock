@@ -203,9 +203,11 @@ pub enum EarlGreyEPMPError {
 ///
 /// 1. High-priority machine-mode "lockdown" entries.
 ///
-///    These entries are only accessible to machine mode. Once locked, they can
-///    only be changed through a hart reset. Examples for such memory sections
-///    can be the kernel's `.text` or certain RAM (e.g. stack) sections.
+///    Some of these entries are locked down by the chip's ROM_EXT, and block
+///    access to certain memory ranges. Other entries are added by Tock and are
+///    only accessible to machine mode. Once locked, they can only be changed
+///    through a hart reset. Examples for such memory sections can be the
+///    kernel's `.text` or certain RAM (e.g. stack) sections.
 ///
 /// 2. Tock's user-mode "MPU"
 ///
@@ -258,31 +260,32 @@ pub enum EarlGreyEPMPError {
 ///   |-------+---------------------------------------------+-------+---+-------|
 ///   | ENTRY | REGION / ADDR                               | MODE  | L | PERMS |
 ///   |-------+---------------------------------------------+-------+---+-------|
-///   |     0 | ------------------------------------------- | OFF   | X | ----- |
-///   |     1 | Kernel .text section                        | TOR   | X | R/X   |
+///   |     0 | Locked by ROM_EXT                           | NAPOT | X |       |
 ///   |       |                                             |       |   |       |
-///   |     2 | /                                         \ | OFF   |   |       |
-///   |     3 | \ Userspace TOR region #0                 / | TOR   |   | ????? |
+///   |     1 | Locked by ROM_EXT                           | NAPOT | X |       |
+///   |       |                                             |       |   |       |
+///   |     2 | ------------------------------------------- | OFF   | X | ----- |
+///   |     3 | Kernel .text section                        | TOR   | X | R/X   |
 ///   |       |                                             |       |   |       |
 ///   |     4 | /                                         \ | OFF   |   |       |
-///   |     5 | \ Userspace TOR region #1                 / | TOR   |   | ????? |
+///   |     5 | \ Userspace TOR region #0                 / | TOR   |   | ????? |
 ///   |       |                                             |       |   |       |
 ///   |     6 | /                                         \ | OFF   |   |       |
-///   |     7 | \ Userspace TOR region #2                 / | TOR   |   | ????? |
+///   |     7 | \ Userspace TOR region #1                 / | TOR   |   | ????? |
 ///   |       |                                             |       |   |       |
 ///   |     8 | /                                         \ | OFF   |   |       |
-///   |     9 | \ Userspace TOR region #3                 / | TOR   |   | ????? |
+///   |     9 | \ Userspace TOR region #2                 / | TOR   |   | ????? |
 ///   |       |                                             |       |   |       |
 ///   |    10 | /                                         \ | OFF   |   |       |
-///   |    11 | \ Userspace TOR region #4                 / | TOR   |   | ????? |
+///   |    11 | \ Userspace TOR region #3                 / | TOR   |   | ????? |
 ///   |       |                                             |       |   |       |
-///   |    12 | ------------------------------------------- | OFF   | X | ----- |
+///   |    12 | FLASH (spanning ROM_EXT, kernel, & apps)    | NAPOT | X | R     |
 ///   |       |                                             |       |   |       |
-///   |    13 | FLASH (spanning kernel & apps)              | NAPOT | X | R     |
+///   |    13 | Debug manager (configured by ROM_EXT)       | NAPOT | X |       |
 ///   |       |                                             |       |   |       |
-///   |    14 | RAM (spanning kernel & apps)                | NAPOT | X | R/W   |
+///   |    14 | MMIO                                        | NAPOT | X | R/W   |
 ///   |       |                                             |       |   |       |
-///   |    15 | MMIO                                        | NAPOT | X | R/W   |
+///   |    15 | RAM (spanning kernel & apps)                | NAPOT | X | R/W   |
 ///   |-------+---------------------------------------------+-------+---+-------|
 ///   ```
 ///
@@ -296,6 +299,10 @@ pub enum EarlGreyEPMPError {
 /// the locked PMP entires. We still need to define locked PMP entries to grant
 /// the kernel (machine-mode) access to its required memory regions, as the
 /// machine-mode whitelist policy (MMWP) is enabled.
+///
+/// Note that the ROM_EXT disables the debug manager, so this setup requires use
+/// of the test ROM. As a result, this policy can use ePMP entries 0 and 1,
+/// which the EPMPDebugDisable mode cannot.
 ///
 /// Thus we split the PMP entires into three parts, as outlined in the
 /// following:
@@ -437,7 +444,7 @@ impl<const HANDOVER_CONFIG_CHECK: bool> EarlGreyEPMP<{ HANDOVER_CONFIG_CHECK }, 
         // range and permissions. Thus, before changing the `pmpcfg3` /
         // `pmpaddr15` region, we first utilize another higher-priority CSR to
         // provide us access to one of the memory regions we'd lose access to,
-        // namely we use the PMP entry 12 to provide us access to MMIO.
+        // namely we use the PMP entry 11 to provide us access to MMIO.
 
         // --> We start with the "high-priority" ("lockdown") section of the
         // ePMP configuration:
@@ -454,62 +461,50 @@ impl<const HANDOVER_CONFIG_CHECK: bool> EarlGreyEPMP<{ HANDOVER_CONFIG_CHECK }, 
         //
         // 0x8d = 0b10001101, for kernel .text TOR region
         //        setting L(7) = 1, A(4-3) = TOR,   X(2) = 1, W(1) = 0, R(0) = 1
-        csr::CSR.pmpcfg2.set(0x00008d80);
+        csr::CSR.pmpcfg0.set(0x8d_80_00_00);
 
         // --> Continue with the "low-priority" ("accessability") section of the
         // ePMP configuration:
 
-        // Now, onto `pmpcfg3`. As discussed above, we want to use a temporary
+        // Now, onto `pmpcfg2`. As discussed above, we want to use a temporary
         // region to retain MMIO access while reconfiguring the `pmpcfg3` /
         // `pmpaddr15` register. Thus, write the MMIO region access into
-        // `pmpaddr12`:
+        // `pmpaddr11`:
+        //
+        // 0x9B = 0b00011011, for the MMIO NAPOT region
+        //        setting L(7) = 0, A(4-3) = NAPOT, X(2) = 0, W(1) = 1, R(0) = 1
         csr::CSR.pmpaddr11.set(mmio.0.napot_addr());
+        csr::CSR.pmpcfg2.set(0x1B_00_00_00);
 
         // Configure a Read-Only NAPOT region for the entire flash (spanning
         // kernel & apps, but overlayed by the R/X kernel text TOR section)
-        //csr::CSR.pmpaddr13.set(flash.0.napot_addr());
-        csr::CSR.pmpaddr12.set((flash.0.start() as usize) >> 2);
-        csr::CSR.pmpaddr13.set((flash.0.end() as usize) >> 2);
+        csr::CSR.pmpaddr12.set(flash.0.napot_addr());
 
         puts("EarlGreyEPMP::new() flash NAPOT done\n");
 
+        // Configure a Read-Write NAPOT region for MMIO in entry 14.
+        csr::CSR.pmpaddr14.set(mmio.0.napot_addr());
+
         // Configure a Read-Write NAPOT region for the entire RAM (spanning
         // kernel & apps)
-        csr::CSR.pmpaddr14.set(ram.0.napot_addr());
+        csr::CSR.pmpaddr15.set(ram.0.napot_addr());
 
         // With the FLASH, RAM and MMIO configured in separate regions, we can
         // activate this new configuration, and further adjust the permissions
-        // of the (currently all-capable) last PMP entry `pmpaddr15` to be R/W,
-        // as required for MMIO:
+        // of the (currently all-capable) PMP entry `pmpaddr14` to be R/W, as
+        // required for MMIO:
         //
         // 0x99 = 0b10011001, for FLASH NAPOT region
         //        setting L(7) = 1, A(4-3) = NAPOT, X(2) = 0, W(1) = 0, R(0) = 1
         //
         // 0x9B = 0b10011011, for RAM & MMIO NAPOT regions
         //        setting L(7) = 1, A(4-3) = NAPOT, X(2) = 0, W(1) = 1, R(0) = 1
-        csr::CSR.pmpcfg3.set(0x9B9B999B);
-
-        // With the new configuration in place, we can adjust the last region's
-        // address to be limited to the MMIO region, ...
-        csr::CSR.pmpaddr15.set(mmio.0.napot_addr());
-
-        // ...and then deactivate the `pmpaddr12` fallback MMIO region
-        //
-        // Remove the temporary MMIO region permissions from `pmpaddr12`:
-        //
-        // 0x80 = 0b10000000
-        //        setting L(7) = 1, A(4-3) = OFF, X(2) = 0, W(1) = 0, R(0) = 0
-        //
-        // 0x99 = 0b10011001, for FLASH NAPOT region
-        //        setting L(7) = 1, A(4-3) = NAPOT, X(2) = 0, W(1) = 0, R(0) = 1
-        //
-        // 0x9B = 0b10011011, for RAM & MMIO NAPOT regions
-        //        setting L(7) = 1, A(4-3) = NAPOT, X(2) = 0, W(1) = 1, R(0) = 1
-        csr::CSR.pmpcfg3.set(0x9B9B9980);
+        csr::CSR.pmpcfg3.set(0x99_00_9B_9B);
 
         puts("EarlGreyEPMP::new() fallback deactivated\n");
 
-        // Ensure that the other pmpcfgX CSRs are cleared:
+        // Make sure entries 4-11 are deactivated (this deactivates the fallback
+        // MMIO region):
         csr::CSR.pmpcfg1.set(0x00000000);
         csr::CSR.pmpcfg2.set(0x00000000);
 
@@ -527,7 +522,7 @@ impl<const HANDOVER_CONFIG_CHECK: bool> EarlGreyEPMP<{ HANDOVER_CONFIG_CHECK }, 
         // set it again, thus actually enforcing the region lock bits.
         //
         // Set RLB(2) = 0, MMWP(1) = 1, MML(0) = 1
-        //csr::CSR.mseccfg.set(0x00000003);
+        csr::CSR.mseccfg.set(0x00000003);
 
         puts("EarlGreyEPMP::new() RLB unset\n");
 
@@ -539,17 +534,18 @@ impl<const HANDOVER_CONFIG_CHECK: bool> EarlGreyEPMP<{ HANDOVER_CONFIG_CHECK }, 
         // compiler, as they invoke assembly underneath which is not marked as
         // ["pure"](https://doc.rust-lang.org/reference/inline-assembly.html).
         if csr::CSR.mseccfg.get() != 0x00000003
-            || csr::CSR.pmpcfg0.get() != 0x00008d80
+            || csr::CSR.pmpcfg0.get() != 0x8d809898 // ROM_EXT SPECIFIC
             || csr::CSR.pmpcfg1.get() != 0x00000000
-            || csr::CSR.pmpcfg2.get() != 0x00000000
-            || csr::CSR.pmpcfg3.get() != 0x9B9B9980
-            //|| csr::CSR.pmpaddr0.get() != (kernel_text.0.start() as usize) >> 2
-            //|| csr::CSR.pmpaddr1.get() != (kernel_text.0.end() as usize) >> 2
-            //|| csr::CSR.pmpaddr13.get() != flash.0.napot_addr()
-            || csr::CSR.pmpaddr14.get() != ram.0.napot_addr()
-            || csr::CSR.pmpaddr15.get() != mmio.0.napot_addr()
+            || csr::CSR.pmpcfg2.get() != 0x9B000000 // BAD
+            //|| csr::CSR.pmpcfg3.get() != 0x99009B9B
+            //|| csr::CSR.pmpaddr2.get() != (kernel_text.0.start() as usize) >> 2
+            //|| csr::CSR.pmpaddr3.get() != (kernel_text.0.end() as usize) >> 2
+            //|| csr::CSR.pmpaddr12.get() != flash.0.napot_addr()
+            //|| csr::CSR.pmpaddr14.get() != mmio.0.napot_addr()
+            //|| csr::CSR.pmpaddr15.get() != ram.0.napot_addr()
         {
-            //return Err(EarlGreyEPMPError::SanityCheckFail);
+            puts("EarlGreyEPMP::new() sanity check FAIL\n");
+            return Err(EarlGreyEPMPError::SanityCheckFail);
         }
 
         puts("EarlGreyEPMP::new() sanity check passed\n");
