@@ -58,13 +58,17 @@
 //! - Shane Leonard <shanel@stanford.edu>
 
 #![no_std]
-// If we don't build any actual register types, we don't need unsafe
-// code in this crate
-#![cfg_attr(not(feature = "register_types"), forbid(unsafe_code))]
 
+mod array_element;
+mod array_iter;
+mod bus_adapter;
 pub mod fields;
 pub mod interfaces;
 pub mod macros;
+mod mmio_pointer;
+mod peripheral;
+pub mod reexport;
+mod register_traits;
 
 #[cfg(feature = "register_types")]
 pub mod registers;
@@ -73,6 +77,15 @@ pub mod debug;
 
 mod local_register;
 pub use local_register::LocalRegisterCopy;
+
+pub use array_element::ArrayElement;
+pub use array_iter::ArrayIter;
+pub use bus_adapter::{BusAdapter, DirectBus};
+pub use mmio_pointer::{ConstPointer, DynPointer, MmioPointer};
+pub use register_traits::{
+    ArrayRead, ArrayRegister, ArrayUnsafeRead, ArrayUnsafeWrite, ArrayWrite, Read, ReadLongName,
+    Register, UnsafeRead, UnsafeWrite, Write, WriteLongName,
+};
 
 use core::fmt::Debug;
 use core::ops::{BitAnd, BitOr, BitOrAssign, Not, Shl, Shr};
@@ -134,3 +147,7 @@ pub trait RegisterLongName {}
 // Useful implementation for when no RegisterLongName is required
 // (e.g. no fields need to be accessed, just the raw register values)
 impl RegisterLongName for () {}
+
+/// Error indicating an array index was out of bounds.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct OutOfBounds;
