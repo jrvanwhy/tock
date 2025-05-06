@@ -3,129 +3,55 @@
 This crate provides an interface and types for defining and
 manipulating registers and bitfields.
 
-## Defining registers
+## Defining peripherals
 
-The crate provides three types for working with memory mapped registers:
-`ReadWrite`, `ReadOnly`, and `WriteOnly`, providing read-write, read-only, and
-write-only functionality, respectively. These types implement the `Readable`,
-`Writeable` and `ReadWriteable` traits.
-
-Defining the registers is done with the `register_structs` macro, which expects
-for each register an offset, a field name, and a type. Registers must be
-declared in increasing order of offsets and contiguously. Gaps when defining the
-registers must be explicitly annotated with an offset and gap identifier (by
-convention using a field named `_reservedN`), but without a type. The macro will
-then automatically take care of calculating the gap size and inserting a
-suitable filler struct. The end of the struct is marked with its size and the
-`@END` keyword, effectively pointing to the offset immediately past the list of
-registers.
-
+You use the `peripheral!` macro to define an MMIO register. The basic idea of
+peripheral! is to turn the following definition:
 ```rust
-use tock_registers::registers::{ReadOnly, ReadWrite, WriteOnly};
-
-register_structs! {
-    Registers {
-        // Control register: read-write
-        // The 'Control' parameter constrains this register to only use fields from
-        // a certain group (defined below in the bitfields section).
-        (0x000 => cr: ReadWrite<u8, Control::Register>),
-
-        // Status register: read-only
-        (0x001 => s: ReadOnly<u8, Status::Register>),
-
-        // Registers can be bytes, halfwords, or words:
-        // Note that the second type parameter can be omitted, meaning that there
-        // are no bitfields defined for these registers.
-        (0x002 => byte0: ReadWrite<u8>),
-        (0x003 => byte1: ReadWrite<u8>),
-        (0x004 => short: ReadWrite<u16>),
-
-        // Empty space between registers must be marked with a padding field,
-        // declared as follows. The length of this padding is automatically
-        // computed by the macro.
-        (0x006 => _reserved),
-        (0x008 => word: ReadWrite<u32>),
-
-        // The type for a register can be anything. Conveniently, you can use an
-        // array when there are a bunch of similar registers.
-        (0x00C => array: [ReadWrite<u32>; 4]),
-        (0x01C => ... ),
-
-        // Etc.
-
-        // The end of the struct is marked as follows.
-        (0x100 => @END),
+tock_registers::peripheral! {
+    Foo {
+        0x0 => reg_a: u32 { Read },
+        0x4 => reg_b: u8 { Read, Write },
     }
 }
 ```
-
-This generates a C-style struct of the following form.
-
+into the following:
 ```rust
-#[repr(C)]
-struct Registers {
-    // Control register: read-write
-    // The 'Control' parameter constrains this register to only use fields from
-    // a certain group (defined below in the bitfields section).
-    cr: ReadWrite<u8, Control::Register>,
+// Represents access to the Foo peripheral. This is implemented
+// on pointer-like types (hence Copy). In a unit test environment,
+// this will be implemented on &FakeFoo.
+trait Foo: Copy {
+    fn reg_a_read(self) -> u32;
+    fn reg_b_read(self) -> u8;
+    fn reg_b_write(self, value: u8);
+}
 
-    // Status register: read-only
-    s: ReadOnly<u8, Status::Register>
+// Provides convenient access to a Foo. Pointer-like.
+#[derive(Clone, Copy)]
+struct Peripheral<A: Foo> { ... }
+impl<A: Foo> Peripheral<A> {
+    // These functions return pointer-like objects that know how
+    // to perform reads and/or writes on the registers they represent.
+    pub fn reg_a(self) -> registers::reg_a<A> { ... }
+    pub fn reg_b(self) -> registers::reg_b<A> { ... }
+}
 
-    // Registers can be bytes, halfwords, or words:
-    // Note that the second type parameter can be omitted, meaning that there
-    // are no bitfields defined for these registers.
-    byte0: ReadWrite<u8>,
-    byte1: ReadWrite<u8>,
-    short: ReadWrite<u16>,
+// Provides the reg_a and reg_b types
+mod registers { ... }
 
-    // The padding length was automatically computed as 0x008 - 0x006.
-    _reserved: [u8; 2],
-    word: ReadWrite<u32>,
-
-    // Arrays are expanded as-is, like any other type.
-    array: [ReadWrite<u32>; 4],
-
-    // Etc.
+// Provides access to a real Foo via MMIO operations. Pointer-like.
+#[derive(Clone, Copy)]
+struct MmioFoo { ... }
+impl Foo for MmioFoo { ... }
+```
+The Foo driver would then look like:
+```
+pub struct FooDriver<F: Foo> {
+    peripheral: Peripheral<F>,
 }
 ```
-
-This crate will generate additional, compile time (`const`) assertions
-to validate various invariants of the register structs, such as
-
-- proper start offset of padding fields,
-- proper start and end offsets of actual fields,
-- invalid alignment of field types,
-- the `@END` marker matching the size of the struct.
-
-For more information on the generated assertions, check out the [`test_fields!`
-macro documentation](https://docs.tockos.org/tock_registers/macro.test_fields.html).
-
-By default, the visibility of the generated structs and fields is private. You
-can make them public using the `pub` keyword, just before the struct name or the
-field identifier.
-
-For example, the following call to the macro:
-
-```rust
-register_structs! {
-    pub Registers {
-        (0x000 => foo: ReadOnly<u32>),
-        (0x004 => pub bar: ReadOnly<u32>),
-        (0x008 => @END),
-    }
-}
-```
-
-will generate the following struct.
-
-```rust
-#[repr(C)]
-pub struct Registers {
-    foo: ReadOnly<u32>,
-    pub bar: ReadOnly<u32>,
-}
-```
+The real board file would instantiate a `FooDriver<MmioFoo>`, whereas unit
+tests would define a `FakeFoo` and instantiate a `FooDriver<&FakeFoo>`.
 
 ## Defining bitfields
 
