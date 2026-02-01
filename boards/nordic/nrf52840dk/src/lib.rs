@@ -148,7 +148,7 @@ use kernel::utilities::single_thread_value::SingleThreadValue;
 
 /// Resources for when a board panics used by io.rs.
 static PANIC_RESOURCES: SingleThreadValue<PanicResources<ChipHw, ProcessPrinter>> =
-    SingleThreadValue::new(PanicResources::new());
+    SingleThreadValue::new(PanicResources::new);
 
 /// In-memory buffer used for the Segger Real Time Transfer (RTT) mechanism.
 static RTT_BUFFER: SingleThreadValue<MapCell<&'static segger::rtt::SeggerRttMemory<'static>>> =
