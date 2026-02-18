@@ -929,7 +929,8 @@ impl<C: Chip, D: 'static + ProcessStandardDebug> Process for ProcessStandard<'_,
             ) {
                 Err(Error::OutOfMemory)
             } else {
-                let old_break = self.app_break.get();
+                let old_break: *const u8 = self.app_break.get();
+                let old_break: *const () = old_break.cast();
                 self.app_break.set(new_break);
 
                 // # Safety
@@ -949,9 +950,12 @@ impl<C: Chip, D: 'static + ProcessStandardDebug> Process for ProcessStandard<'_,
                 }
 
                 let base = self.mem_start() as usize;
+                // # Safety
+                // The passed range [base, new_break) exactly matches the process' memory range,
+                // and a process should have RW access to its own memory.
                 let break_result = unsafe {
                     CapabilityPtr::new_with_authority(
-                        old_break.cast::<()>(),
+                        old_break,
                         base,
                         (new_break as usize) - base,
                         CapabilityPtrPermissions::ReadWrite,
@@ -1329,7 +1333,7 @@ impl<C: Chip, D: 'static + ProcessStandardDebug> Process for ProcessStandard<'_,
     }
 
     fn is_valid_upcall_function_pointer(&self, upcall_fn: *const ()) -> bool {
-        let ptr = upcall_fn.cast::<u8>();
+        let ptr: *const u8 = upcall_fn.cast();
         let size = mem::size_of::<*const u8>();
 
         // It is okay if this function is in memory or flash.
@@ -2359,7 +2363,7 @@ impl<C: 'static + Chip, D: 'static + ProcessStandardDebug> ProcessStandard<'_, C
                 self.kernel_memory_break.set(new_break);
 
                 // We need `grant_ptr` as a mutable pointer.
-                let grant_ptr = new_break.cast_mut();
+                let grant_ptr: *mut u8 = new_break.cast_mut();
 
                 // ### Safety
                 //

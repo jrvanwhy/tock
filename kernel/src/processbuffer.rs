@@ -62,6 +62,7 @@ unsafe fn raw_processbuf_to_roprocessslice<'a>(
     ptr: *const u8,
     len: usize,
 ) -> &'a ReadableProcessSlice {
+    let ptr: *const ReadableProcessByte = ptr.cast();
     // Transmute a slice reference over readable (read-only or read-write, and
     // potentially aliased) bytes into a `ReadableProcessSlice` reference.
     //
@@ -94,7 +95,7 @@ unsafe fn raw_processbuf_to_roprocessslice<'a>(
                 core::ptr::NonNull::<ReadableProcessByte>::dangling().as_ptr(),
                 0,
             ),
-            _ => core::slice::from_raw_parts(ptr.cast::<ReadableProcessByte>(), len),
+            _ => core::slice::from_raw_parts(ptr, len),
         },
     )
 }
