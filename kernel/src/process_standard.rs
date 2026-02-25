@@ -973,7 +973,8 @@ impl<C: Chip, D: 'static + ProcessStandardDebug> Process for ProcessStandard<'_,
             ) {
                 Err(Error::OutOfMemory)
             } else {
-                let old_break = self.app_break.get();
+                let old_break: *const u8 = self.app_break.get();
+                let old_break: *const () = old_break.cast();
                 self.app_break.set(new_break);
 
                 // # Safety
@@ -993,9 +994,12 @@ impl<C: Chip, D: 'static + ProcessStandardDebug> Process for ProcessStandard<'_,
                 }
 
                 let base = self.mem_start() as usize;
+                // # Safety
+                // The passed range [base, new_break) exactly matches the process' memory range,
+                // and a process should have RW access to its own memory.
                 let break_result = unsafe {
                     CapabilityPtr::new_with_authority(
-                        old_break as *const (),
+                        old_break,
                         base,
                         (new_break as usize) - base,
                         CapabilityPtrPermissions::ReadWrite,
@@ -1373,7 +1377,7 @@ impl<C: Chip, D: 'static + ProcessStandardDebug> Process for ProcessStandard<'_,
     }
 
     fn is_valid_upcall_function_pointer(&self, upcall_fn: *const ()) -> bool {
-        let ptr = upcall_fn as *const u8;
+        let ptr: *const u8 = upcall_fn.cast();
         let size = mem::size_of::<*const u8>();
 
         // It is okay if this function is in memory or flash.
@@ -1975,7 +1979,7 @@ impl<C: 'static + Chip, D: 'static + ProcessStandardDebug> ProcessStandard<'_, C
         // Calling `wrapping_sub` is safe here, as we've factored in an optional
         // padding of at most `sizeof(usize)` bytes in the calculation of
         // `initial_kernel_memory_size` above.
-        let mut kernel_memory_break = allocated_kernel_memory
+        let mut kernel_memory_break: *mut u8 = allocated_kernel_memory
             .cast::<u8>()
             .add(allocated_kernel_memory.len());
 
@@ -1989,10 +1993,9 @@ impl<C: 'static + Chip, D: 'static + ProcessStandardDebug> ProcessStandard<'_, C
         // and `grant_ptrs_offset` is a multiple of the word size.
         #[allow(clippy::cast_ptr_alignment)]
         // Set all grant pointers to null.
-        let grant_pointers: &mut [MaybeUninit<GrantPointerEntry>] = slice::from_raw_parts_mut(
-            kernel_memory_break as *mut MaybeUninit<GrantPointerEntry>,
-            grant_ptrs_num,
-        );
+        let grant_pointers: *mut MaybeUninit<GrantPointerEntry> = kernel_memory_break.cast();
+        let grant_pointers: &mut [MaybeUninit<GrantPointerEntry>] =
+            slice::from_raw_parts_mut(grant_pointers, grant_ptrs_num);
         for grant_entry in grant_pointers.iter_mut() {
             grant_entry.write(GrantPointerEntry {
                 driver_num: 0,
@@ -2016,19 +2019,20 @@ impl<C: 'static + Chip, D: 'static + ProcessStandardDebug> ProcessStandard<'_, C
         // TODO: https://github.com/tock/tock/issues/1739
         #[allow(clippy::cast_ptr_alignment)]
         // Set up ring buffer for upcalls to the process.
-        let upcall_buf =
-            slice::from_raw_parts_mut(kernel_memory_break as *mut Task, Self::CALLBACK_LEN);
+        let upcall_buf: *mut Task = kernel_memory_break.cast();
+        let upcall_buf = slice::from_raw_parts_mut(upcall_buf, Self::CALLBACK_LEN);
         let tasks = RingBuffer::new(upcall_buf);
 
         // Last thing in the kernel region of process RAM is the process struct.
         kernel_memory_break = kernel_memory_break.offset(-(Self::PROCESS_STRUCT_OFFSET as isize));
-        let process_struct_memory_location = kernel_memory_break;
+        let process_struct_memory_location: *mut u8 = kernel_memory_break;
 
         // Create the Process struct in the app grant region.
         // Note that this requires every field be explicitly initialized, as
         // we are just transforming a pointer into a structure.
-        let process: &mut ProcessStandard<C, D> =
-            &mut *(process_struct_memory_location as *mut ProcessStandard<'static, C, D>);
+        let process_struct_memory_location: *mut ProcessStandard<'static, C, D> =
+            process_struct_memory_location.cast();
+        let process: &mut ProcessStandard<C, D> = &mut *process_struct_memory_location;
 
         // Ask the kernel for a unique identifier for this process that is being
         // created.
@@ -2413,7 +2417,7 @@ impl<C: 'static + Chip, D: 'static + ProcessStandardDebug> ProcessStandard<'_, C
                 self.kernel_memory_break.set(new_break);
 
                 // We need `grant_ptr` as a mutable pointer.
-                let grant_ptr = new_break as *mut u8;
+                let grant_ptr: *mut u8 = new_break.cast_mut();
 
                 // ### Safety
                 //
