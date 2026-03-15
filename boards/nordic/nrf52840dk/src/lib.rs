@@ -421,12 +421,19 @@ pub unsafe fn start_no_pconsole() -> (
     >();
 
     // Bind global variables to this thread.
-    PANIC_RESOURCES.bind_to_thread::<<ChipHw as kernel::platform::chip::Chip>::ThreadIdProvider>(
-        PanicResources::new(),
-    );
-    RTT_BUFFER.bind_to_thread::<<ChipHw as kernel::platform::chip::Chip>::ThreadIdProvider>(
-        MapCell::empty(),
-    );
+    PANIC_RESOURCES
+        .bind_to_thread::<<ChipHw as kernel::platform::chip::Chip>::ThreadIdProvider>(
+            PanicResources::new(),
+        )
+        .map_err(|_| ())
+        .unwrap();
+    RTT_BUFFER
+        .bind_to_thread::<<ChipHw as kernel::platform::chip::Chip>::ThreadIdProvider>(
+            MapCell::empty(),
+        )
+        .map_err(|_| ())
+        .unwrap();
+
     // Set up peripheral drivers. Called in separate function to reduce stack
     // usage.
     let ieee802154_ack_buf = static_init!(
