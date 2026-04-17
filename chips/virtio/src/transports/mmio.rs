@@ -31,13 +31,13 @@ mmio32_registers! {
         /// 0x014 Device (host) features word selection
         0x14 => device_features_sel: DeviceFeatures::Register { Write },
         // 0x018 - 0x01C: reserved
-        0x18 => _: 8,
+        0x18 => _,
         /// 0x020 Flags representing features understood and activated by the driver
         0x20 => driver_features: u32 { Write },
         /// 0x024 Activated (guest) features word selection
         0x24 => driver_features_sel: u32 { Write },
         // 0x028 - 0x02C: reserved
-        0x28 => _: 8,
+        0x28 => _,
         /// 0x030 Virtual queue index
         0x30 => queue_sel: u32 { Write },
         /// 0x034 Maximum virtual queue size
@@ -45,40 +45,40 @@ mmio32_registers! {
         /// 0x038 Virtual queue size
         0x38 => queue_num: u32 { Write },
         // 0x03C - 0x40: reserved
-        0x3c => _: 8,
+        0x3c => _,
         /// 0x044 Virtual queue ready bit
         0x44 => queue_ready: u32 { Read, Write },
         // 0x048 - 0x04C: reserved
-        0x48 => _: 8,
+        0x48 => _,
         /// 0x050 Queue notifier
         0x50 => queue_notify: u32 { Write },
         // 0x054 - 0x05C: reserved
-        0x54 => _: 12,
+        0x54 => _,
         /// 0x060 Interrupt status
         0x60 => interrupt_status: InterruptStatus::Register { Read },
         /// 0x064 Interrupt acknowledge
         0x64 => interrupt_ack: InterruptStatus::Register { Write },
         // 0x068 - 0x06C: reserved
-        0x68 => _: 8,
+        0x68 => _,
         /// 0x070 Device status
         0x70 => device_status: DeviceStatus::Register { Read, Write },
         // 0x074 - 0x07C: reserved
-        0x74 => _: 12,
+        0x74 => _,
         /// 0x080 - 0x084 Virtual queue's Descriptor Area 64-bit long physical address
         0x80 => queue_desc_low: u32 { Write },
         0x84 => queue_desc_high: u32 { Write },
         // 0x088 - 0x08C: reserved
-        0x88 => _: 8,
+        0x88 => _,
         /// 0x090 - 0x094 Virtual queue's Driver Area 64-bit long physical address
         0x90 => queue_driver_low: u32 { Write },
         0x94 => queue_driver_high: u32 { Write },
         // 0x098 - 0x09C: reserved
-        0x98 => _: 8,
+        0x98 => _,
         /// 0x0A0 - 0x0A4 Virtual queue's Device Area 64-bit long physical address
         0xa0 => queue_device_low: u32 { Write },
         0xa4 => queue_device_high: u32 { Write },
         // 0x0A8 - 0x0AC: reserved
-        0xa8 => _: 84,
+        0xa8 => _,
         /// 0x0FC Configuration atomicity value
         0xfc => config_generation: u32 { Read },
         /// 0x100 - 0x19C device configuration space
