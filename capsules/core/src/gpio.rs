@@ -197,7 +197,7 @@ impl<'a, IP: gpio::InterruptPin<'a>> SyscallDriver for GPIO<'a, IP> {
 
         // This app did anything with the GPIO driver. We mark it as enabled
         // by allocating the grant region. This allows for upcalls.
-        let _ = self.apps.enter(processid, |_, _| {});
+        let grant_ret = self.apps.enter(processid, |_, _| {});
 
         match command_num {
             // Check existence.
@@ -292,6 +292,14 @@ impl<'a, IP: gpio::InterruptPin<'a>> SyscallDriver for GPIO<'a, IP> {
             // configure interrupts on pin
             // (no affect or reliance on registered callback)
             7 => {
+                // If the grant entry failed, meaning we could not allocate the
+                // grant, we want to ensure the app does not try to wait on an
+                // interrupt upcall using Yield-WaitFor which will never return. So,
+                // we return an error for this operation.
+                if grant_ret.is_err() {
+                    return CommandReturn::failure(ErrorCode::NOMEM);
+                }
+
                 let irq_config = data2;
                 if pin_index >= pins.len() {
                     /* impossible pin */
@@ -304,6 +312,14 @@ impl<'a, IP: gpio::InterruptPin<'a>> SyscallDriver for GPIO<'a, IP> {
             // disable interrupts on pin, also disables pin
             // (no affect or reliance on registered callback)
             8 => {
+                // If the grant entry failed, meaning we could not allocate the
+                // grant, we want to ensure the app does not try to wait on an
+                // interrupt upcall using Yield-WaitFor which will never return. So,
+                // we return an error for this operation.
+                if grant_ret.is_err() {
+                    return CommandReturn::failure(ErrorCode::NOMEM);
+                }
+
                 if pin_index >= pins.len() {
                     /* impossible pin */
                     CommandReturn::failure(ErrorCode::INVAL)
