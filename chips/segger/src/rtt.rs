@@ -379,6 +379,8 @@ impl<'a, A: hil::time::Alarm<'a>> uart::Receive<'a> for SeggerRtt<'a, A> {
 ///
 /// This is only to be used by panic messages and is not used within the normal
 /// operation of the Tock kernel.
+///
+/// TODO: Validate this [`RttPanicWriter`] is always sound to create.
 struct RttPanicWriter<'a> {
     inner: &'a SeggerRttMemory<'a>,
 }

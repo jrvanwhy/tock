@@ -528,6 +528,8 @@ impl<'a> hil::uart::Receive<'a> for Uart16550<'a> {
 ///
 /// This is only to be used by panic messages and is not used within the normal
 /// operation of the Tock kernel.
+///
+/// TODO: Validate this [`UartPanicWriter`] is always sound to create.
 struct UartPanicWriter<'a> {
     inner: Uart16550<'a>,
 }
