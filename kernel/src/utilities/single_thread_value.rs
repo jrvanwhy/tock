@@ -544,6 +544,12 @@ impl<T> SingleThreadValue<T> {
     /// reference to its contained value.
     pub fn get(&self) -> Option<&T> {
         if self.bound_to_current_thread() {
+            // # Safety
+            //
+            // When `self.bound_to_current_thread()` returns true, we know that
+            // `self.value` is initialized, and that the value belongs to and is
+            // accessible to the currently running thread. We can safely
+            // construct a reference to it.
             Some(unsafe { (&*self.value.get()).assume_init_ref() })
         } else {
             None
