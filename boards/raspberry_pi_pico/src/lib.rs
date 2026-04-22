@@ -254,7 +254,7 @@ pub unsafe fn setup(
 
     // Bind global variables to this thread.
     let _ = PANIC_RESOURCES
-        .bind_to_thread::<<ChipHw as kernel::platform::chip::Chip>::ThreadIdProvider>(
+        .bind_to_thread_unsafe::<<ChipHw as kernel::platform::chip::Chip>::ThreadIdProvider>(
             PanicResources::new(),
         );
 
