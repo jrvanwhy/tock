@@ -333,7 +333,14 @@ impl<T> SingleThreadValue<T> {
 
         // Initialize the contained value, constructed on the same (currently
         // running) thread that we are binding the `SingleThreadValue` to. This
-        // avoids a requirement of `T: Send`:
+        // avoids a requirement of `T: Send`.
+        //
+        // # Safety
+        //
+        // We are the only thread with access to `self.value` going forward, and
+        // this is the first time that this value is being accessed (as we're
+        // initializing it). Therefore, we can safely dereference a mutable
+        // (unique) pointer to this value:
         unsafe {
             *self.value.get() = MaybeUninit::new(value);
         }
@@ -427,7 +434,14 @@ impl<T> SingleThreadValue<T> {
 
         // Initialize the contained value, constructed on the same (currently
         // running) thread that we are binding the `SingleThreadValue` to. This
-        // avoids a requirement of `T: Send`:
+        // avoids a requirement of `T: Send`.
+        //
+        // # Safety
+        //
+        // We are the only thread with access to `self.value` going forward, and
+        // this is the first time that this value is being accessed (as we're
+        // initializing it). Therefore, we can safely dereference a mutable
+        // (unique) pointer to this value:
         unsafe {
             *self.value.get() = MaybeUninit::new(value);
         }
