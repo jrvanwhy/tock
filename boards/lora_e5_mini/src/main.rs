@@ -213,6 +213,12 @@ pub unsafe fn main() {
         <ChipHw as kernel::platform::chip::Chip>::ThreadIdProvider,
     >();
 
+    // Bind global variables to this thread.
+    let _ = PANIC_RESOURCES
+        .bind_to_thread::<<ChipHw as kernel::platform::chip::Chip>::ThreadIdProvider>(
+            PanicResources::new(),
+        );
+
     stm32wle5jc::init();
 
     let peripherals = create_peripherals();
@@ -222,6 +228,9 @@ pub unsafe fn main() {
     // Create an array to hold process references.
     let processes = components::process_array::ProcessArrayComponent::new()
         .finalize(components::process_array_component_static!(NUM_PROCS));
+    PANIC_RESOURCES.get().map(|resources| {
+        resources.processes.put(processes.as_slice());
+    });
 
     // Setup space to store the core kernel data structure.
     let board_kernel = static_init!(kernel::Kernel, kernel::Kernel::new(processes.as_slice()));
@@ -230,6 +239,9 @@ pub unsafe fn main() {
         stm32wle5jc::chip::Stm32wle5xx<Stm32wle5jcDefaultPeripherals>,
         stm32wle5jc::chip::Stm32wle5xx::new(peripherals)
     );
+    PANIC_RESOURCES.get().map(|resources| {
+        resources.chip.put(chip);
+    });
 
     setup_peripherals(&base_peripherals.tim2, &base_peripherals.subghz_spi);
 
@@ -302,6 +314,9 @@ pub unsafe fn main() {
 
     let process_printer = components::process_printer::ProcessPrinterTextComponent::new()
         .finalize(components::process_printer_text_component_static!());
+    PANIC_RESOURCES.get().map(|resources| {
+        resources.printer.put(process_printer);
+    });
 
     //--------------------------------------------------------------------
     // LED
