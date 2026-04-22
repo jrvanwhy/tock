@@ -19,7 +19,6 @@ use kernel::hil::led::LedLow;
 use kernel::hil::time::Counter;
 use kernel::hil::usb::Client;
 use kernel::platform::{KernelResources, SyscallDriverLookup};
-use kernel::utilities::cells::MapCell;
 use kernel::utilities::single_thread_value::SingleThreadValue;
 #[allow(unused_imports)]
 use kernel::{create_capability, debug, debug_gpio, debug_verbose, static_init};
@@ -84,8 +83,7 @@ static mut CDC_REF_FOR_PANIC: Option<
 /// Resources for when a board panics used by io.rs.
 static PANIC_RESOURCES: SingleThreadValue<PanicResources<ChipHw, ProcessPrinter>> =
     SingleThreadValue::new();
-static NRF52_POWER: SingleThreadValue<MapCell<&'static nrf52840::power::Power>> =
-    SingleThreadValue::new();
+static NRF52_POWER: SingleThreadValue<&'static nrf52840::power::Power> = SingleThreadValue::new();
 
 kernel::stack_size! {0x1000}
 
@@ -93,10 +91,8 @@ kernel::stack_size! {0x1000}
 fn baud_rate_reset_bootloader_enter() {
     unsafe {
         // 0x90 is the magic value the bootloader expects
-        NRF52_POWER.get().map(|power_cell| {
-            power_cell.map(|power| {
-                power.set_gpregret(0x90);
-            });
+        NRF52_POWER.get().map(|power| {
+            power.set_gpregret(0x90);
         });
         cortexm4::scb::reset();
     }
@@ -243,10 +239,6 @@ pub unsafe fn start() -> (
         .bind_to_thread::<<ChipHw as kernel::platform::chip::Chip>::ThreadIdProvider>(
             PanicResources::new(),
         );
-    let _ = NRF52_POWER
-        .bind_to_thread::<<ChipHw as kernel::platform::chip::Chip>::ThreadIdProvider>(
-            MapCell::empty(),
-        );
 
     let ieee802154_ack_buf = static_init!(
         [u8; nrf52840::ieee802154_radio::ACK_BUF_SIZE],
@@ -265,9 +257,10 @@ pub unsafe fn start() -> (
 
     // Save a reference to the power module for resetting the board into the
     // bootloader.
-    NRF52_POWER.get().map(|power_cell| {
-        power_cell.put(&base_peripherals.pwr_clk);
-    });
+    let _ = NRF52_POWER
+        .bind_to_thread::<<ChipHw as kernel::platform::chip::Chip>::ThreadIdProvider>(
+            &base_peripherals.pwr_clk,
+        );
 
     // Create an array to hold process references.
     let processes = components::process_array::ProcessArrayComponent::new()
