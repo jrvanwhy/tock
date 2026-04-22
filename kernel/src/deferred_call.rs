@@ -166,12 +166,9 @@ static DEFCALLS: SingleThreadValue<[OptionalCell<DynDefCallRef<'static>>; 32]> =
 /// This ensures it can safely be used as a global variable.
 #[cfg(target_has_atomic = "ptr")]
 pub fn initialize_deferred_call_state<P: ThreadIdProvider>() {
-    CTR.bind_to_thread::<P>(Cell::new(0)).unwrap();
-    BITMASK.bind_to_thread::<P>(Cell::new(0)).unwrap();
-    DEFCALLS
-        .bind_to_thread::<P>([const { OptionalCell::empty() }; 32])
-        .map_err(|_| ())
-        .unwrap();
+    let _ = CTR.bind_to_thread::<P>(Cell::new(0));
+    let _ = BITMASK.bind_to_thread::<P>(Cell::new(0));
+    let _ = DEFCALLS.bind_to_thread::<P>([const { OptionalCell::empty() }; 32]);
 }
 
 /// Initialize the static state used by deferred calls.
@@ -184,12 +181,9 @@ pub fn initialize_deferred_call_state<P: ThreadIdProvider>() {
 /// concurrently with calls to [`initialize_deferred_call_state`] or other calls
 /// to [`initialize_deferred_call_state_unsafe`].
 pub unsafe fn initialize_deferred_call_state_unsafe<P: ThreadIdProvider>() {
-    CTR.bind_to_thread_unsafe::<P>(Cell::new(0)).unwrap();
-    BITMASK.bind_to_thread_unsafe::<P>(Cell::new(0)).unwrap();
-    DEFCALLS
-        .bind_to_thread_unsafe::<P>([const { OptionalCell::empty() }; 32])
-        .map_err(|_| ())
-        .unwrap();
+    let _ = CTR.bind_to_thread_unsafe::<P>(Cell::new(0));
+    let _ = BITMASK.bind_to_thread_unsafe::<P>(Cell::new(0));
+    let _ = DEFCALLS.bind_to_thread_unsafe::<P>([const { OptionalCell::empty() }; 32]);
 }
 
 pub struct DeferredCall {
