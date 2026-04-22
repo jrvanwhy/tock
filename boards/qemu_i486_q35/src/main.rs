@@ -231,6 +231,12 @@ unsafe extern "cdecl" fn main() {
         <ChipHw as kernel::platform::chip::Chip>::ThreadIdProvider,
     >();
 
+    // Bind global variables to this thread.
+    let _ = PANIC_RESOURCES
+        .bind_to_thread::<<ChipHw as kernel::platform::chip::Chip>::ThreadIdProvider>(
+            PanicResources::new(),
+        );
+
     // Basic setup of the i486 platform
     // Allocate statics for default peripherals and build them via the chip helper
     let default_peripherals = unsafe {

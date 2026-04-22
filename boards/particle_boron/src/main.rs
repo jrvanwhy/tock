@@ -81,8 +81,6 @@ type ProcessPrinterInUse = capsules_system::process_printer::ProcessPrinterText;
 static PANIC_RESOURCES: SingleThreadValue<PanicResources<ChipHw, ProcessPrinterInUse>> =
     SingleThreadValue::new();
 
-static mut NRF52_POWER: Option<&'static nrf52840::power::Power> = None;
-
 kernel::stack_size! {0x1000}
 
 type TemperatureDriver =
@@ -233,10 +231,6 @@ pub unsafe fn start_particle_boron() -> (
     // set up circular peripheral dependencies
     nrf52840_peripherals.init();
     let base_peripherals = &nrf52840_peripherals.nrf52;
-
-    // Save a reference to the power module for resetting the board into the
-    // bootloader.
-    NRF52_POWER = Some(&base_peripherals.pwr_clk);
 
     // Create an array to hold process references.
     let processes = components::process_array::ProcessArrayComponent::new()
