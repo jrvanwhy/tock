@@ -126,18 +126,17 @@ impl Upcall {
     ///
     /// # Note on Null upcalls
     ///
-    /// This function _does_ schedule [null upcalls][null_upcall]. This is
-    /// necessary to support the Yield-WaitFor system call which does not
-    /// require an upcall function to be registered.
-    ///
-    /// null_upcall: https://github.com/tock/tock/blob/master/doc/reference/trd104-syscalls.md#421-the-null-upcall
+    /// This function _does_ schedule
+    /// [null upcalls](https://github.com/tock/tock/blob/master/doc/reference/trd104-syscalls.md#421-the-null-upcall).
+    /// This is necessary to support the Yield-WaitFor system call which does
+    /// not require an upcall function to be registered.
     ///
     /// # Note on dropping upcalls and Yield-WaitFor
     ///
     /// If the per-process storage for upcalls is full the schedule operation
     /// may fail. The exact dynamics of what defines "full" is implementation
-    /// dependent based on the [`Process`] implementation. Also, what happens if
-    /// the storage for upcalls is full depends on the [`Process`]
+    /// dependent based on the [`Process`](process::Process) implementation. Also, what happens if
+    /// the storage for upcalls is full depends on the [`Process`](process::Process)
     /// implementation.
     ///
     /// It is likely, however, that the per-process storage is a queue, and when
