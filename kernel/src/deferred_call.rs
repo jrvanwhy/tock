@@ -18,7 +18,7 @@
 //!
 //! Before any [`DeferredCall`]s are created, the internal state used by the
 //! implementation must be initialized. Boards must initialize deferred calls
-//! by calling either [`initialize_deferred_call_state`] or
+//! by calling either `initialize_deferred_call_state` or
 //! [`initialize_deferred_call_state_unsafe`]. Depending on the hardware state
 //! available (i.e., atomic support), boards will only have one initialization
 //! routine available.
@@ -178,7 +178,7 @@ pub fn initialize_deferred_call_state<P: ThreadIdProvider>() {
 /// # Safety
 ///
 /// Callers of this function must ensure that this function is never called
-/// concurrently with calls to [`initialize_deferred_call_state`] or other calls
+/// concurrently with calls to `initialize_deferred_call_state` or other calls
 /// to [`initialize_deferred_call_state_unsafe`].
 pub unsafe fn initialize_deferred_call_state_unsafe<P: ThreadIdProvider>() {
     let _ = CTR.bind_to_thread_unsafe::<P>(Cell::new(0));
@@ -286,7 +286,7 @@ impl DeferredCall {
     ///
     /// 1. That `DEFCALLS` and the other [`SingleThreadValue`] types have been
     ///    bound to a thread. This happens during
-    ///    [`initialize_deferred_call_state`] or
+    ///    `initialize_deferred_call_state` or
     ///    [`initialize_deferred_call_state_unsafe`].
     ///
     /// 2. That <= `DEFCALLS::len` deferred calls have been created, which is

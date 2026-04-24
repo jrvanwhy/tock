@@ -15,7 +15,7 @@ use crate::platform::chip::ThreadIdProvider;
 ///
 /// The [`SingleThreadValue`] starts out not being bound to, and thus not being
 /// usable by any thread. A `SingleThreadValue` instance is instead bound to
-/// particular thread using either the [`SingleThreadValue::bind_to_thread`], or
+/// particular thread using either the `SingleThreadValue::bind_to_thread`, or
 /// the [`SingleThreadValue::bind_to_thread_unsafe`] methods. These methods can
 /// be used exactly once, after which the instance is permanently bound to the
 /// given thread that called these methods.
@@ -74,7 +74,7 @@ enum BoundToThreadStage {
 /// similar to the standard library's `LocalKey`, and thus appropriate for
 /// static allocations of values that are not themselves [`Sync`]. However,
 /// unlike `LocalKey`, it only holds a value for a single thread, determined at
-/// runtime based on the first call to [`SingleThreadValue::bind_to_thread`].
+/// runtime based on the first call to `SingleThreadValue::bind_to_thread`.
 ///
 /// # Example
 ///
@@ -108,7 +108,7 @@ enum BoundToThreadStage {
 /// ```
 ///
 /// When creating a new [`SingleThreadValue`] instance, it is uninitialized
-/// until the [`bind_to_thread`](SingleThreadValue::bind_to_thread) or
+/// until the `bind_to_thread` or
 /// [`bind_to_thread_unsafe`](SingleThreadValue::bind_to_thread_unsafe) methods
 /// are called. Until it is initialized, all attempts to access the shared value
 /// using [`get`](SingleThreadValue::get) will return `None`.
@@ -213,7 +213,7 @@ impl<T> SingleThreadValue<T> {
     /// Note that the `SingleThreadValue` will initially be uninitialized. It
     /// must first be bound to a particular thread, which will initialize with a
     /// value originating from that thread, using the
-    /// [`bind_to_thread`](SingleThreadValue::bind_to_thread) or
+    /// `bind_to_thread` or
     /// [`bind_to_thread_unsafe`](SingleThreadValue::bind_to_thread_unsafe)
     /// methods.
     pub const fn new() -> Self {
@@ -380,7 +380,7 @@ impl<T> SingleThreadValue<T> {
     ///
     /// Callers of this function must ensure that this function is never called
     /// concurrently with other calls to
-    /// [`bind_to_thread`](SingleThreadValue::bind_to_thread) or
+    /// `bind_to_thread` or
     /// [`bind_to_thread_unsafe`](SingleThreadValue::bind_to_thread_unsafe) on
     /// the same [`SingleThreadValue`] instance.
     pub unsafe fn bind_to_thread_unsafe<P: ThreadIdProvider>(&self, value: T) -> Result<(), T> {
@@ -464,7 +464,7 @@ impl<T> SingleThreadValue<T> {
     ///
     /// Returns `true` if the value is bound to the thread that is currently
     /// running (as determined by the implementation of `ThreadIdProvider` used
-    /// in [`bind_to_thread`](SingleThreadValue::bind_to_thread) or
+    /// in `bind_to_thread` or
     /// [`bind_to_thread_unsafe`](SingleThreadValue::bind_to_thread_unsafe)).
     /// Returns `false` when a different thread is executing, when it is not
     /// bound to any thread yet, or currently in the process of being bound to a
