@@ -714,7 +714,7 @@ macro_rules! debug_expr {
 }
 
 /// Flush any stored messages to the output writer.
-pub unsafe fn flush<W: Write + IoWrite>(writer: &mut W) {
+fn flush<W: Write + IoWrite>(writer: &mut W) {
     try_get_debug_writer(|debug_writer|{
         if debug_writer.to_write_len() > 0 {
             let _ = writer.write_str(
