@@ -17,7 +17,7 @@ External Dependencies
   * [Capsule Crate-Specific External Dependencies](#capsule-crate-specific-external-dependencies)
   * [Core Kernel External Dependencies](#core-kernel-external-dependencies)
     + [Approved Exceptions for Core Kernel External Dependencies](#approved-exceptions-for-core-kernel-external-dependencies)
-      - [**tock-registers**](#tock-registers)
+      - [**tock-registers** and **tock-registers-macros**](#tock-registers)
       - [**flux-rs**](#flux-rs)
 - [Including the Dependency](#including-the-dependency)
   * [Including Capsule Crate-Specific External Dependencies](#including-capsule-crate-specific-external-dependencies)
