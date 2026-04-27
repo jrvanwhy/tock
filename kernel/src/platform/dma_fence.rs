@@ -12,7 +12,7 @@
 /// expose memory reads and writes by Rust and DMA peripherals to each other.
 /// These operations are from the perspective of Rust and the Tock kernel: a
 /// memory buffer is _released_ to the DMA peripheral, and then after the DMA
-/// operation is fully completed, _aquired_ back from the DMA peripheral.
+/// operation is fully completed, _acquired_ back from the DMA peripheral.
 ///
 /// When starting a DMA operation over a buffer prepared from Rust, it is
 /// important that the buffer's current contents are actually observable by the
@@ -69,17 +69,15 @@ pub unsafe trait DmaFence: core::fmt::Debug + Send + Sync + Copy {
     ///
     /// Specifically, this function must ensure that any writes from Rust to the
     /// buffer described by `ptr` and `len` _before_ this function, are visible
-    /// to any DMA operations initiated by an MMIO read or write operation
-    /// _after_ this function returns.
+    /// to any DMA operations, as long as these operations are initiated by MMIO read or write operations issued _after_ this function returns.
     fn release<T>(self, buf: *mut [T]);
 
     /// Expose prior writes by DMA peripherals to subsequent memory reads.
     ///
-    /// Specifically, this function must ensure that any reads from Rust to the
-    /// buffer described by `ptr` and `len` _after_ this function returns
+    /// Specifically, this function must ensure that any Rust reads of the buffer described by `ptr` and `len`, performed _after_ this function returns,
     /// reflect all writes made by DMA operations finished _before_ this
-    /// function ran. Implementations can assume that this function is called
-    /// _after_ the program observed that the DMA operation finished, by reading
-    /// a status field through an MMIO or memory read.
+    /// function ran.
+    ///
+    /// This function must be called _after_ the program has observed that the DMA operation finished, by reading a status field through an MMIO or memory read.
     fn acquire<T>(self, buf: *mut [T]);
 }

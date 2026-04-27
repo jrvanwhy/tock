@@ -6,9 +6,9 @@
 //! Mechanism for sharing buffers with DMA peripherals.
 //!
 //! When implementing a chip peripheral driver using DMA, the driver must be
-//! careful to not intoduce any undefined behavior. This module provides
+//! careful to not introduce any undefined behavior. This module provides
 //! `DmaSlice` types, which drivers can use when passing a buffer to the DMA
-//! hardware. When used correctly, types ensure that Rust's memory requirements
+//! hardware. When used correctly, these types ensure that Rust's memory requirements
 //! are preserved when hardware is accessing memory in a way the Rust compiler
 //! cannot reason about.
 //!
@@ -23,13 +23,13 @@
 //!   operations.
 //!
 //! Internally, all implementations of `DmaSlice` use an architecture or
-//! chip-provided implementation of [`DmaFence`] to manually ensure that the
+//! chip-provided implementation of [`DmaFence`] to ensure that the
 //! Rust compiler cannot assume the memory passed to the DMA hardware is not
 //! modified.
 //!
 //! Conceptually, a `DmaSlice` consumes a memory buffer. Once consumed, a
 //! pointer to that memory can then be safely provided to DMA hardware. When the
-//! buffer is consumed, the `DmaSlice` prevent the Rust compiler from making
+//! buffer is consumed, the `DmaSlice` prevents the Rust compiler from making
 //! assumptions about the state of the memory accessed by DMA hardware that
 //! would be incorrect and introduce undefined behavior. Once the DMA operation
 //! finishes, the buffer must be extracted from the `DmaSlice`. Before
@@ -99,12 +99,13 @@ use crate::platform::dma_fence::DmaFence;
 
 /// An immutable buffer that can be safely used for read-only DMA operations.
 ///
-/// The buffer can be a slice of any type that is guaranteed to be initialized
-/// without interior mutability, for example a `[u8]` or `[u32]`.
+/// The buffer can be a slice of any type which implements
+/// [`ImmutableFromIntoBytes`](immutable_from_into_bytes::ImmutableFromIntoBytes),
+/// such as `u8` or `u32`.
 ///
-/// [`DmaSlice`] wraps an immutable slice. As such, its
-/// contents MUST NOT be modified by the DMA operation. For a DMA operation that
-/// may write to the supplied buffer, use [`DmaSliceMut`] instead.
+/// [`DmaSlice`] wraps an immutable slice. As such, its contents MUST NOT be
+/// modified by the DMA operation. For a DMA operation that may write to the
+/// supplied buffer, use [`DmaSliceMut`] instead.
 ///
 /// # Use with DMA
 ///
@@ -113,14 +114,14 @@ use crate::platform::dma_fence::DmaFence;
 /// through an MMIO write operation, where that MMIO write is performed after
 /// constructing the [`DmaSlice`].
 ///
-/// For this guarantee to hold, the [`DmaSlice`] struct must exist for the
+/// For this guarantee to hold, the [`DmaSlice`] instance must exist for the
 /// duration of the entire DMA operation, until the Rust program has observed
 /// that the operation is complete (such as by reading a status bit in memory or
 /// an MMIO register).
 ///
 /// This struct uses a [`DmaFence`] implementation to ensure that all prior
 /// writes to `slice` are exposed to any DMA operations initiated by an MMIO
-/// read or write operation after this function returns, and which finish
+/// read or write operation issued after this function returns, and which finish
 /// before the resulting [`DmaSlice`] is dropped.
 #[derive(Debug)]
 pub struct DmaSlice<'a, T: immutable_from_into_bytes::ImmutableFromIntoBytes> {
@@ -161,8 +162,9 @@ impl<'a, T: immutable_from_into_bytes::ImmutableFromIntoBytes> DmaSlice<'a, T> {
 /// A mutable buffer that can be safely used for DMA operations that read or
 /// write the buffer's contents.
 ///
-/// The buffer can be a slice of any type that is guaranteed to be initialized
-/// without interior mutability, for example a `[u8]` or `[u32]`.
+/// The buffer can be a slice of any type which implements
+/// [`ImmutableFromIntoBytes`](immutable_from_into_bytes::ImmutableFromIntoBytes),
+/// such as `u8` or `u32`.
 ///
 /// # Use with DMA
 ///
@@ -170,14 +172,13 @@ impl<'a, T: immutable_from_into_bytes::ImmutableFromIntoBytes> DmaSlice<'a, T> {
 /// Rust writes to this slice are observable by any DMA operations initiated
 /// through an MMIO write operation, where that MMIO write is performed
 /// **after** constructing the `DmaSliceMut`. All writes by the DMA operation
-/// will be observable by Rust when calling
-/// [`take`](Self::take) **after** the DMA
-/// operation is finished.
+/// will be observable by Rust when calling [`take`](Self::take) **after** the
+/// DMA operation is finished.
 ///
 /// This struct uses a [`DmaFence`] implementation to ensure that all prior
 /// writes to `slice` are exposed to any DMA operations initiated by an MMIO
-/// read or write operation after this function returns, and which finish
-/// before calling [`take`](Self::take).
+/// read or write operation after this function returns, and which finish before
+/// calling [`take`](Self::take).
 ///
 /// # Safety Considerations
 ///
@@ -190,20 +191,23 @@ impl<'a, T: immutable_from_into_bytes::ImmutableFromIntoBytes> DmaSlice<'a, T> {
 /// visible to Rust.
 ///
 /// [`take`](Self::take) must only be called after the DMA operation has been
-/// observed to be complete (such as through a memory or MMIO read). Callers
+/// observed to be complete through an explicit memory or MMIO read. Callers
 /// must ensure that the hardware will not perform any further writes to the
 /// buffer at the point where [`take`](Self::take) is called.
 ///
-/// Callers must further ensure that they start DMA operations only after
-/// constructing the [`DmaSliceMut`], and only in the memory region described by
-/// [`as_mut_ptr`](Self::as_mut_ptr) and [`len`](Self::len).
+/// Callers must further ensure that they start DMA operations through a memory
+/// or MMIO write only after constructing the [`DmaSliceMut`], and only in the
+/// memory region described by [`as_mut_ptr`](Self::as_mut_ptr) and
+/// [`len`](Self::len).
 ///
 /// Users are responsible to ensure that, after the DMA operation completes and
-/// before calling [`take`](Self::take), every
-/// element in the underlying slice represents a well-initialized and valid
-/// instance of its type (with the exception of padding bytes). See the
-/// [zerocopy crate](https://docs.rs/zerocopy/0.8.31/zerocopy/) for an more
-/// in-depth explanation of these requirements.
+/// before calling [`take`](Self::take), every element in the underlying slice
+/// represents a well-initialized and valid instance of its type (with the
+/// exception of padding bytes). Concretely, all elements in the slice must meet
+/// the requirements of the
+/// [`ImmutableFromIntoBytes`](immutable_from_into_bytes::ImmutableFromIntoBytes)
+/// trait. See the [zerocopy crate](https://docs.rs/zerocopy/0.8.31/zerocopy/)
+/// for a more in-depth explanation of these requirements.
 #[derive(Debug)]
 pub struct DmaSliceMut<'a, T: immutable_from_into_bytes::ImmutableFromIntoBytes> {
     slice_ptr: NonNull<[T]>,
@@ -215,9 +219,9 @@ impl<'a, T: immutable_from_into_bytes::ImmutableFromIntoBytes> DmaSliceMut<'a, T
     pub fn new_static(slice: &'static mut [T], fence: impl DmaFence) -> DmaSliceMut<'static, T> {
         // # Safety
         //
-        // This operation is safe, as dropping or forgetting its return value
-        // is safe. This would merely leak memory and make the underlying
-        // slice inaccessible.
+        // This operation is safe, as dropping or forgetting its return value is
+        // safe. This would merely leak memory and make the underlying slice
+        // inaccessible.
         unsafe { Self::new(slice, fence) }
     }
 
@@ -225,11 +229,10 @@ impl<'a, T: immutable_from_into_bytes::ImmutableFromIntoBytes> DmaSliceMut<'a, T
     ///
     /// # Safety
     ///
-    /// Callers must ensure to not[`forget`](core::mem::forget) the returned
-    /// [`DmaSliceMut`]. This could provide access to the underlying buffer
-    /// without guaranteeing that the DMA operation has finished.  Users
-    /// **must** eventually call [`take`](Self::take) to retrieve the underlying
-    /// buffer.
+    /// Callers must ensure to not drop the returned [`DmaSliceMut`]. This could
+    /// provide access to the underlying buffer without guaranteeing that the
+    /// DMA operation has finished.  Users **must** eventually call
+    /// [`take`](Self::take) to retrieve the underlying buffer.
     #[must_use]
     pub unsafe fn new(slice: &mut [T], fence: impl DmaFence) -> DmaSliceMut<'_, T> {
         let dma_slice_mut = DmaSliceMut {
@@ -260,19 +263,19 @@ impl<'a, T: immutable_from_into_bytes::ImmutableFromIntoBytes> DmaSliceMut<'a, T
 
     /// Recover the original mutable slice.
     ///
-    /// The caller MUST ensure the hardware DMA will no longer write to
-    /// the buffer.
+    /// The caller MUST ensure the hardware DMA will no longer write to the
+    /// buffer.
     ///
     /// # Safety
     ///
-    /// Callers must guarantee no hardware DMA have access to the buffer
-    /// before calling `take()`. All DMA operations must have completed
-    /// before calling this function and the caller must ensure no future
-    /// operations will occur using the underlying buffer.
+    /// Callers must guarantee no hardware DMA have access to the buffer before
+    /// calling `take()`. All DMA operations must have completed before calling
+    /// this function and the caller must ensure no future operations will occur
+    /// using the underlying buffer.
     pub unsafe fn take(mut self, fence: impl DmaFence) -> &'a mut [T] {
         // Ensure that any reads from Rust to the buffer described by
-        // `slice_ptr` _after_ this function returns reflect all writes made by
-        // DMA operations finished _before_ this function ran:
+        // `slice_ptr` issued _after_ this function returns reflect all writes
+        // made by DMA operations finished _before_ this function ran:
         fence.acquire::<T>(self.slice_ptr.as_ptr());
 
         unsafe { self.slice_ptr.as_mut() }
@@ -293,11 +296,10 @@ impl<'a, T: immutable_from_into_bytes::ImmutableFromIntoBytes> DmaSliceMut<'a, T
 /// memory or an MMIO register).
 ///
 /// [`DmaSliceMutImmut`] may wrap an immutable, shared Rust slice
-/// reference. Furthermore, in contrast to `DmaSliceMut`, `DmaSliceMutImmut`
-/// may not expose writes performed by a DMA operation back to Rust. As such,
-/// its contents *must* not be modified by the DMA operation. For a DMA
-/// operation that may write to the supplied buffer, use [`DmaSliceMut`]
-/// instead.
+/// reference. Furthermore, in contrast to `DmaSliceMut`, `DmaSliceMutImmut` may
+/// not expose writes performed by a DMA operation back to Rust. As such, its
+/// contents *must* not be modified by the DMA operation. For a DMA operation
+/// that may write to the supplied buffer, use [`DmaSliceMut`] instead.
 #[derive(Debug)]
 pub enum DmaSliceMutImmut<'a, T: immutable_from_into_bytes::ImmutableFromIntoBytes> {
     Immutable(DmaSlice<'a, T>),
@@ -448,20 +450,30 @@ impl<'a, T: immutable_from_into_bytes::ImmutableFromIntoBytes> DmaSubSlice<'a, T
     }
 }
 
-/// An mutable buffer that can be safely used for DMA operations that read from
-/// and/or write to the buffer's contents.
+/// A mutable buffer that can be safely used for DMA operations that read or
+/// write the buffer's contents.
+///
+/// The buffer can be a slice of any type which implements
+/// [`ImmutableFromIntoBytes`](immutable_from_into_bytes::ImmutableFromIntoBytes),
+/// such as `u8` or `u32`.
+///
+/// # Use with DMA
 ///
 /// Creating a [`DmaSubSliceMut`] over a [`SubSliceMut`] ensures that all prior
-/// Rust writes to this slice's active range are observable by any DMA
+/// Rust writes to the active range of this slice are observable by any DMA
 /// operations initiated through an MMIO write operation, where that MMIO write
 /// is performed **after** constructing the `DmaSubSliceMut`. All writes by the
 /// DMA operation will be observable by Rust when calling [`take`](Self::take)
 /// **after** the DMA operation is finished.
 ///
-/// # Safety
+/// This struct uses a [`DmaFence`] implementation to ensure that all prior
+/// writes to `slice` are exposed to any DMA operations initiated by an MMIO
+/// read or write operation after this function returns, and which finish before
+/// calling [`take`](Self::take).
 ///
-/// Users **must** eventually call
-/// [`take`](Self::take) to retrieve the
+/// # Safety Considerations
+///
+/// Users **must** eventually call [`take`](Self::take) to retrieve the
 /// underlying buffer. The [`DmaSubSliceMut`] must exist for the entire duration
 /// of the DMA operation. Users must never drop a [`DmaSubSliceMut`] with a
 /// non-`'static` lifetime, as this could provide access to the underlying
@@ -469,22 +481,24 @@ impl<'a, T: immutable_from_into_bytes::ImmutableFromIntoBytes> DmaSubSlice<'a, T
 /// issuing a DMA memory fence to ensure that writes by the DMA operation are
 /// visible to Rust.
 ///
-/// [`take`](Self::take) must only be called
-/// after the DMA operation has been observed to be complete (such as through a
-/// memory or MMIO read). Callers must ensure that the hardware will not perform
-/// any further writes to the buffer at the point where
-/// [`take`](Self::take) is called.
+/// [`take`](Self::take) must only be called after the DMA operation has been
+/// observed to be complete through an explicit memory or MMIO read. Callers
+/// must ensure that the hardware will not perform any further writes to the
+/// buffer at the point where [`take`](Self::take) is called.
 ///
-/// Callers must further ensure that they start DMA operations only after
-/// constructing the [`DmaSubSliceMut`], and only in the memory region described
-/// by [`as_mut_ptr`](Self::as_mut_ptr) and [`len`](Self::len).
+/// Callers must further ensure that they start DMA operations through a memory
+/// or MMIO write only after constructing the [`DmaSubSliceMut`], and only in
+/// the memory region described by [`as_mut_ptr`](Self::as_mut_ptr) and
+/// [`len`](Self::len).
 ///
 /// Users are responsible to ensure that, after the DMA operation completes and
 /// before calling [`take`](Self::take), every element in the underlying slice
 /// represents a well-initialized and valid instance of its type (with the
-/// exception of padding bytes). See the [zerocopy
-/// crate](https://docs.rs/zerocopy/0.8.31/zerocopy/) for an more in-depth
-/// explanation of these requirements.
+/// exception of padding bytes). Concretely, all elements in the slice must meet
+/// the requirements of the
+/// [`ImmutableFromIntoBytes`](immutable_from_into_bytes::ImmutableFromIntoBytes)
+/// trait. See the [zerocopy crate](https://docs.rs/zerocopy/0.8.31/zerocopy/)
+/// for a more in-depth explanation of these requirements.
 #[derive(Debug)]
 pub struct DmaSubSliceMut<'a, T: immutable_from_into_bytes::ImmutableFromIntoBytes> {
     internal_slice_ptr: NonNull<[T]>,
@@ -493,20 +507,27 @@ pub struct DmaSubSliceMut<'a, T: immutable_from_into_bytes::ImmutableFromIntoByt
 }
 
 impl<'a, T: immutable_from_into_bytes::ImmutableFromIntoBytes> DmaSubSliceMut<'a, T> {
+    /// Create a [`DmaSubSliceMut`] from a [`SubSliceMut`] with `'static`
+    /// lifetime.
+    pub fn new_static(
+        sub_slice: SubSliceMut<'static, T>,
+        fence: impl DmaFence,
+    ) -> DmaSubSliceMut<'static, T> {
+        // # Safety
+        //
+        // This operation is safe, as dropping or forgetting its return value is
+        // safe. This would merely leak memory and make the underlying slice
+        // inaccessible.
+        unsafe { Self::new(sub_slice, fence) }
+    }
+
     /// Create a [`DmaSubSliceMut`] from a [`SubSliceMut`].
-    ///
-    /// This function uses the supplied `fence` object to ensure that all prior
-    /// writes to the active region of `slice` are exposed to any DMA operations
-    /// initiated by an MMIO read or write operation after this function
-    /// returns, and which finish before calling [`take`](Self::take).
     ///
     /// # Safety
     ///
-    /// Refer the safety documentation of the [`DmaSubSliceMut`] type.
-    ///
-    /// This function is unsafe, as dropping or
-    /// [`forget`](core::mem::forget)ting its return value is not allowed when
-    /// the lifetime `'b` is not `'static`. Users **must** eventually call
+    /// Callers must ensure to not drop the returned [`DmaSubSliceMut`]. This
+    /// could provide access to the underlying buffer without guaranteeing that
+    /// the DMA operation has finished. Users **must** eventually call
     /// [`take`](Self::take) to retrieve the underlying buffer.
     #[must_use]
     pub unsafe fn new(
@@ -532,28 +553,6 @@ impl<'a, T: immutable_from_into_bytes::ImmutableFromIntoBytes> DmaSubSliceMut<'a
         ));
 
         dma_sub_slice_mut
-    }
-
-    /// Create a [`DmaSubSliceMut`] from a [`SubSliceMut`] with `'static`
-    /// lifetime.
-    ///
-    /// This function uses the supplied `fence` object to ensure that all prior
-    /// writes to `slice` are exposed to any DMA operations initiated by an MMIO
-    /// read or write operation after this function returns, and which finish
-    /// before calling [`take`](Self::take).
-    ///
-    /// # Safety
-    ///
-    /// Refer the safety documentation of the [`DmaSubSliceMut`] type.
-    ///
-    /// In contrast to [`new`](Self::new) this function is safe, as dropping or
-    /// forgetting its return value is safe, it would merely leak memory and
-    /// make the underlying slice inaccessible.
-    pub fn new_static(
-        sub_slice: SubSliceMut<'static, T>,
-        fence: impl DmaFence,
-    ) -> DmaSubSliceMut<'static, T> {
-        unsafe { Self::new(sub_slice, fence) }
     }
 
     /// Returns the pointer to the first element of the active range of the
@@ -587,19 +586,12 @@ impl<'a, T: immutable_from_into_bytes::ImmutableFromIntoBytes> DmaSubSliceMut<'a
     /// Recover the original [`SubSliceMut`] used to construct this
     /// [`DmaSubSliceMut`] object.
     ///
-    /// This function uses the supplied `fence` object to ensure that all prior
-    /// writes to the active range of `slice` by any completed DMA operations
-    /// are exposed to any subsequent Rust reads.
-    ///
     /// # Safety
     ///
-    /// Refer the safety documentation of the [`DmaSubSliceMut`] type.
-    ///
-    /// In particular, [`take`](Self::take) must only be called after the DMA
-    /// operation has been observed to be complete (such as through a memory or
-    /// MMIO read). Callers must ensure that the hardware will not perform any
-    /// further writes to the buffer at the point where [`take`](Self::take) is
-    /// called.
+    /// Callers must guarantee no hardware DMA have access to the buffer before
+    /// calling `take()`. All DMA operations must have completed before calling
+    /// this function and the caller must ensure no future operations will occur
+    /// using the underlying buffer.
     pub unsafe fn take(mut self, fence: impl DmaFence) -> SubSliceMut<'a, T> {
         // Ensure that any reads from Rust to the active range of the buffer
         // (described by `self.as_mut_ptr()` and `self.len()`) _after_ this
@@ -614,11 +606,9 @@ impl<'a, T: immutable_from_into_bytes::ImmutableFromIntoBytes> DmaSubSliceMut<'a
     }
 
     /// Recover the original [`SubSliceMut`] used to construct this
-    /// [`DmaSubSliceMut`] object, without performing an acquire DMA fence.
+    /// [`DmaSubSliceMut`] object, without performing an `acquire` fence.
     ///
     /// # Safety
-    ///
-    /// Refer the safety documentation of the [`DmaSubSliceMut`] type.
     ///
     /// This function does not necessarily expose any writes to the underlying
     /// buffer to Rust. It must only be used when the underlying buffer's
@@ -636,15 +626,15 @@ impl<'a, T: immutable_from_into_bytes::ImmutableFromIntoBytes> DmaSubSliceMut<'a
 /// A buffer that can be safely used for read-only DMA operations, backed by
 /// either a [`SubSliceMutImmut`].
 ///
-/// Creating a [`DmaSubSliceMutImmut`] over a [`SubSliceMutImmut`] ensures that all
-/// prior Rust writes to the active region of this slice are observable by any
-/// DMA operations initiated through an MMIO write operation, where that MMIO
-/// write is performed *after* constructing the `DmaSubSliceMutImmut`.
+/// Creating a [`DmaSubSliceMutImmut`] over a [`SubSliceMutImmut`] ensures that
+/// all prior Rust writes to the active region of this slice are observable by
+/// any DMA operations initiated through an MMIO write operation, where that
+/// MMIO write is performed *after* constructing the `DmaSubSliceMutImmut`.
 ///
-/// For this guarantee to hold, the `DmaSubSliceMutImmut` struct must exist for the
-/// duration of the entire DMA operation, until the Rust program has observed
-/// that the operation is complete (such as by reading a status bit in memory or
-/// an MMIO register).
+/// For this guarantee to hold, the `DmaSubSliceMutImmut` struct must exist for
+/// the duration of the entire DMA operation, until the Rust program has
+/// observed that the operation is complete (such as by reading a status bit in
+/// memory or an MMIO register).
 ///
 /// [`DmaSliceMutImmut`] may wrap an immutable, shared Rust slice
 /// reference. Furthermore, in contrast to `DmaSubSliceMut`,
@@ -743,19 +733,19 @@ pub mod immutable_from_into_bytes {
         pub trait Sealed {}
     }
 
-    /// A type that is can be safely converted to an initialized sequence of bytes,
-    /// from an arbitrary initialized sequence of bytes, and does not feature
-    /// interior mutability.
+    /// A type that is can be safely converted to an initialized sequence of
+    /// bytes, from an arbitrary initialized sequence of bytes, and does not
+    /// feature interior mutability.
     ///
-    /// The requirements on implementors of this trait are effectively the same as
-    /// the combination of zerocopy's [`FromBytes`][zerocopy-frombytes],
+    /// The requirements on implementors of this trait are effectively the same
+    /// as the combination of zerocopy's [`FromBytes`][zerocopy-frombytes],
     /// [`IntoBytes`][zerocopy-intobytes], and [`Immutable`][zerocopy-immutable]
     /// traits.
     ///
-    /// This trait is only implemented for a few select primitives, intended to be
-    /// used for DMA operations. It is sealed; all extensions to future types must
-    /// ensure they conform to the above trait's requirements and are safe for DMA
-    /// operations.
+    /// This trait is only implemented for a few select primitives, intended to
+    /// be used for DMA operations. It is sealed; all extensions to future types
+    /// must ensure they conform to the above trait's requirements and are safe
+    /// for DMA operations.
     ///
     /// [zerocopy-frombytes]: https://docs.rs/zerocopy/0.8.42/zerocopy/trait.FromBytes.html
     /// [zerocopy-intobytes]: https://docs.rs/zerocopy/0.8.42/zerocopy/trait.IntoBytes.html
@@ -883,7 +873,8 @@ mod miri_tests {
 
         // 1. Create from static
         //
-        // Note: access to static mut is unsafe, but the from_static_slice_ref call itself is safe
+        // Note: access to static mut is unsafe, but the from_static_slice_ref
+        // call itself is safe
         let dma = DmaSliceMut::new_static(unsafe { &mut *(&raw mut BUFFER) }, fence);
 
         // 2. Simulate DMA Write
