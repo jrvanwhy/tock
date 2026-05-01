@@ -17,7 +17,7 @@ External Dependencies
   * [Capsule Crate-Specific External Dependencies](#capsule-crate-specific-external-dependencies)
   * [Core Kernel External Dependencies](#core-kernel-external-dependencies)
     + [Approved Exceptions for Core Kernel External Dependencies](#approved-exceptions-for-core-kernel-external-dependencies)
-      - [**tock-registers** and **tock-registers-macros**](#tock-registers-and-tock-registers-macros)
+      - [**tock-registers**](#tock-registers)
       - [**flux-rs**](#flux-rs)
 - [Including the Dependency](#including-the-dependency)
   * [Including Capsule Crate-Specific External Dependencies](#including-capsule-crate-specific-external-dependencies)
@@ -210,12 +210,12 @@ crates. All exceptions will be considered independently.
 
 #### Approved Exceptions for Core Kernel External Dependencies
 
-##### **tock-registers** and **tock-registers-macros**
-`tock-registers` provides an interface for using MMIO registers which is
-extensively used in `chips/` crates.
+##### **tock-registers**
+The `tock-registers` crates provide an interface for using MMIO registers which
+is extensively used in `chips/` crates.
 
 - **Repository:** https://github.com/tock/tock-registers
-- **Justification:** This crate has moved to an external dependency to
+- **Justification:** This project has moved to an external dependency to
   encourage its development and use in projects beyond Tock. Specifically, the
   benefits of development in a separate repository include:
   1. Encouraging more rigorous backwards compatibility considerations for
@@ -234,17 +234,17 @@ extensively used in `chips/` crates.
      repository makes it clear it is a standalone project and can be developed
      independently of Tock. This should help contributions that benefit
      tock-registers but not necessarily Tock as well.
-- **Dependencies:** `tock-registers-macros` may have dev-dependencies on
+- **Dependencies:** `tock-registers` crates may have dev-dependencies on
   external crates to support unit testing, as those dev-dependencies are not
-  included in a Tock kernel build. Additionally, `tock-registers-macros` may
+  included in a Tock kernel build. Additionally, `tock-registers` crates may
   depend on the `syn`, `quote`, and `proc-macro2` crates for the following
   reasons:
   1. **Important functionality:** Procedural macros need to parse nontrivial
      Rust code and generate nontrivial Rust code, and `syn` and `quote` provide
-     that functionality. For us to implement that ourself — and maintain it as
-     the Rust language evolves — would require considerable effort. `quote` has
-     a hard dependency on `proc-macro2`, which is also useful to support
-     `tock-registers-macros`' unit tests, so that is included as well.
+     that functionality. It would require considerable effort for us to
+     implement and maintain that ourselves. `quote` has a hard dependency on
+     `proc-macro2`, which is also useful to support the procedural macros' unit
+     tests, so that is included as well.
   2. **Project maturity:** These crates are core Rust ecosystem mechanisms, and
      have been stable for years. All three crates are in the top 10
      all-time-most-downloaded crates on crates.io.
