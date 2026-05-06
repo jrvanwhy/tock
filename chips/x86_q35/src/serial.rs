@@ -30,10 +30,11 @@ use kernel::utilities::io_write::IoWrite;
 use kernel::ErrorCode;
 use tock_cells::take_cell::TakeCell;
 use tock_registers::{
-    register_bitfields, registers, FakeRegister, LocalRegisterCopy, NoAccess, Read, Safe, Write,
+    register_bitfields, register_layouts, FakeRegister, LocalRegisterCopy, NoAccess, Read, Safe,
+    Write,
 };
 
-registers! {
+register_layouts! {
     #![buses(Port)]
     serial_registers {
         0 => rx_buffer: u8 { Read },
