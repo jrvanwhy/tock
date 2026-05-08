@@ -35,7 +35,7 @@ use tock_registers::{
 };
 
 register_layouts! {
-    #![buses(Port)]
+    #![bus(Port)]
     serial_registers {
         0 => rx_buffer: u8 { Read },
         #[aliased]
@@ -309,7 +309,7 @@ register_bitfields!(u8,
     ],
 );
 
-pub struct SerialPort<'a, R: serial_registers::Interface = serial_registers::Real<Port>> {
+pub struct SerialPort<'a, R: serial_registers::Interface = serial_registers::Real> {
     registers: R,
 
     /// Client of transmit operations
@@ -640,9 +640,8 @@ impl SerialPortComponent {
 }
 
 impl Component for SerialPortComponent {
-    type StaticInput =
-        (&'static mut MaybeUninit<SerialPort<'static, serial_registers::Real<Port>>>,);
-    type Output = &'static SerialPort<'static, serial_registers::Real<Port>>;
+    type StaticInput = (&'static mut MaybeUninit<SerialPort<'static, serial_registers::Real>>,);
+    type Output = &'static SerialPort<'static, serial_registers::Real>;
 
     fn finalize(self, s: Self::StaticInput) -> Self::Output {
         let serial = s.0.write(SerialPort::new(unsafe {
@@ -663,7 +662,7 @@ impl Component for SerialPortComponent {
 /// interrupt-driven I/O is not possible, such as early bootstrapping or panic handling.
 pub struct BlockingSerialPort<R: serial_registers::Interface>(R);
 
-impl BlockingSerialPort<serial_registers::Real<Port>> {
+impl BlockingSerialPort<serial_registers::Real> {
     /// Creates and returns a new `BlockingSerialPort` instance.
     ///
     /// ## Safety

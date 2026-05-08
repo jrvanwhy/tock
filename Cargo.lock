@@ -1649,7 +1649,7 @@ source = "git+https://github.com/tock/firmware.git#86ad8b00315dc5f44593722ece80a
 [[package]]
 name = "tock-registers"
 version = "0.10.1"
-source = "git+https://github.com/jrvanwhy/tock-registers.git?branch=mod-interface#e371ffdfbfe2cd8003a1da846850ac100a26c858"
+source = "git+https://github.com/jrvanwhy/tock-registers.git?branch=mod-interface#599bb8f8ec2bf298e737c9e5b7738e35e0b96995"
 dependencies = [
  "tock-registers-macros",
 ]
@@ -1657,7 +1657,7 @@ dependencies = [
 [[package]]
 name = "tock-registers-codegen"
 version = "0.10.1"
-source = "git+https://github.com/jrvanwhy/tock-registers.git?branch=mod-interface#e371ffdfbfe2cd8003a1da846850ac100a26c858"
+source = "git+https://github.com/jrvanwhy/tock-registers.git?branch=mod-interface#599bb8f8ec2bf298e737c9e5b7738e35e0b96995"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1667,7 +1667,7 @@ dependencies = [
 [[package]]
 name = "tock-registers-macros"
 version = "0.10.1"
-source = "git+https://github.com/jrvanwhy/tock-registers.git?branch=mod-interface#e371ffdfbfe2cd8003a1da846850ac100a26c858"
+source = "git+https://github.com/jrvanwhy/tock-registers.git?branch=mod-interface#599bb8f8ec2bf298e737c9e5b7738e35e0b96995"
 dependencies = [
  "proc-macro2",
  "tock-registers-codegen",
