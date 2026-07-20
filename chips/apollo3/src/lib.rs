@@ -5,6 +5,7 @@
 //! Peripheral implementations for the Apollo3 MCU.
 
 #![no_std]
+#![recursion_limit = "256"]
 
 // Peripherals
 pub mod ble;

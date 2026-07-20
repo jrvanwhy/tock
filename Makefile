@@ -149,7 +149,8 @@ allboards boards:
 
 .PHONY: allcheck check
 allcheck check:
-	@cargo check
+	@RUSTFLAGS='-Dimplicit_provenance_casts -Zcrate-attr=feature(strict_provenance_lints)'\
+		cargo check
 
 .PHONY: alldoc doc
 alldoc doc:
