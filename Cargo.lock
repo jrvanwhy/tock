@@ -1821,7 +1821,7 @@ source = "git+https://github.com/tock/firmware.git#86ad8b00315dc5f44593722ece80a
 [[package]]
 name = "tock-registers"
 version = "0.10.1"
-source = "git+https://github.com/tock/tock-registers.git?branch=dev%2Fjrvanwhy%2Frc-interface#4313990f56ec3d9e23f4115b3f4500bff7f1bdd5"
+source = "git+https://github.com/tock/tock-registers.git?branch=jrvanwhy%2Flimit-mmio-target#bf48fa51f49fabcd39b8829acbe17f89fe95af5f"
 dependencies = [
  "tock-registers-macros",
 ]
@@ -1829,7 +1829,7 @@ dependencies = [
 [[package]]
 name = "tock-registers-codegen"
 version = "0.10.1"
-source = "git+https://github.com/tock/tock-registers.git?branch=dev%2Fjrvanwhy%2Frc-interface#4313990f56ec3d9e23f4115b3f4500bff7f1bdd5"
+source = "git+https://github.com/tock/tock-registers.git?branch=jrvanwhy%2Flimit-mmio-target#bf48fa51f49fabcd39b8829acbe17f89fe95af5f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1839,7 +1839,7 @@ dependencies = [
 [[package]]
 name = "tock-registers-macros"
 version = "0.10.1"
-source = "git+https://github.com/tock/tock-registers.git?branch=dev%2Fjrvanwhy%2Frc-interface#4313990f56ec3d9e23f4115b3f4500bff7f1bdd5"
+source = "git+https://github.com/tock/tock-registers.git?branch=jrvanwhy%2Flimit-mmio-target#bf48fa51f49fabcd39b8829acbe17f89fe95af5f"
 dependencies = [
  "tock-registers-codegen",
 ]

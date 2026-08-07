@@ -44,24 +44,18 @@ pub struct QemuRv32VirtDefaultPeripherals<'a> {
     pub virtio_mmio: [VirtIOMMIODevice<virtio_mmio_device_registers::Real<Mmio32>>; 8],
 }
 
+#[cfg(target_arch = "riscv32")]
 impl QemuRv32VirtDefaultPeripherals<'_> {
     pub fn new() -> Self {
         Self {
             uart0: qemu_virt_chip::uart::Uart16550::new(crate::uart::UART0_BASE),
-            virtio_mmio: [
-                VirtIOMMIODevice::new(crate::virtio_mmio::VIRTIO_MMIO_0_BASE),
-                VirtIOMMIODevice::new(crate::virtio_mmio::VIRTIO_MMIO_1_BASE),
-                VirtIOMMIODevice::new(crate::virtio_mmio::VIRTIO_MMIO_2_BASE),
-                VirtIOMMIODevice::new(crate::virtio_mmio::VIRTIO_MMIO_3_BASE),
-                VirtIOMMIODevice::new(crate::virtio_mmio::VIRTIO_MMIO_4_BASE),
-                VirtIOMMIODevice::new(crate::virtio_mmio::VIRTIO_MMIO_5_BASE),
-                VirtIOMMIODevice::new(crate::virtio_mmio::VIRTIO_MMIO_6_BASE),
-                VirtIOMMIODevice::new(crate::virtio_mmio::VIRTIO_MMIO_7_BASE),
-            ],
+            // Safety: QEMU has VirtIO.
+            virtio_mmio: unsafe { VirtIOMMIODevice::new_all() },
         }
     }
 }
 
+#[cfg(target_pointer_width = "32")]
 impl InterruptService for QemuRv32VirtDefaultPeripherals<'_> {
     fn service_interrupt(&self, interrupt: u32) -> bool {
         match interrupt {

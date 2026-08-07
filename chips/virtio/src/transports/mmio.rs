@@ -129,15 +129,69 @@ pub struct VirtIOMMIODevice<R: virtio_mmio_device_registers::Interface> {
     queues: OptionalCell<&'static [&'static dyn Virtqueue]>,
 }
 
-impl<R: virtio_mmio_device_registers::Interface> VirtIOMMIODevice<R> {
-    pub const fn new(regs: R) -> VirtIOMMIODevice<R> {
-        VirtIOMMIODevice {
-            regs,
-            device_type: OptionalCell::empty(),
-            queues: OptionalCell::empty(),
-        }
+#[cfg(all(target_arch = "riscv32", target_pointer_width = "32"))]
+impl VirtIOMMIODevice<virtio_mmio_device_registers::Real<Mmio32>> {
+    /// Safety: This must be called on a system with VirtIO.
+    pub unsafe fn new_all() -> [Self; 8] {
+        [
+            0x1000_1000,
+            0x1000_2000,
+            0x1000_3000,
+            0x1000_4000,
+            0x1000_5000,
+            0x1000_6000,
+            0x1000_7000,
+            0x1000_8000,
+        ]
+        .map(|address| {
+            let mmio = Mmio32::from_addr(address);
+            VirtIOMMIODevice {
+                // Safety:
+                // 1. The caller has guaranteed this system has VirtIO, and VirtIO in this
+                //    architecture is always MMIO. These addresses are correct for this
+                //    architecture.
+                // 2. virtio_mmio_device_registers was defined correctly.
+                // 3. There's no way to cause a data race throguh VirtIO.
+                regs: unsafe { virtio_mmio_device_registers::Real::new(mmio) },
+                device_type: OptionalCell::empty(),
+                queues: OptionalCell::empty(),
+            }
+        })
     }
+}
 
+#[cfg(all(target_arch = "riscv32", target_pointer_width = "64"))]
+impl VirtIOMMIODevice<virtio_mmio_device_registers::Real<Mmio64>> {
+    /// Safety: This must be called on a system with VirtIO.
+    pub const unsafe fn new_all() -> [Self; 8] {
+        [
+            0x1000_1000,
+            0x1000_2000,
+            0x1000_3000,
+            0x1000_4000,
+            0x1000_5000,
+            0x1000_6000,
+            0x1000_7000,
+            0x1000_8000,
+        ]
+        .map(|address| {
+            let mmio = Mmio64::from_addr(address);
+            VirtIOMMIODevice {
+                // Safety:
+                // 1. The caller has guaranteed this system has VirtIO, and VirtIO in this
+                //    architecture is always MMIO. These addresses are correct for this
+                //    architecture.
+                // 2. virtio_mmio_device_registers was defined correctly.
+                // 3. There's no way to cause a data race throguh VirtIO.
+                regs: unsafe { virtio_mmio_device_registers::Real::new(mmio) },
+                device_type: OptionalCell::empty(),
+                queues: OptionalCell::empty(),
+            }
+        })
+    }
+}
+
+impl<R: virtio_mmio_device_registers::Interface> VirtIOMMIODevice<R> {
     pub fn handle_interrupt(&self) {
         assert!(self.queues.is_some());
 

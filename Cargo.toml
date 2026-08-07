@@ -142,7 +142,7 @@ edition = "2021"
 [workspace.dependencies.tock-registers]
 default-features = false
 git = "https://github.com/tock/tock-registers.git"
-branch = "dev/jrvanwhy/rc-interface"
+branch = "jrvanwhy/limit-mmio-target"
 
 [profile.dev]
 panic = "abort"
