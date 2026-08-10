@@ -84,14 +84,14 @@ impl Fake8250 {
     }
 }
 
-impl serial_registers::Interface for &Fake8250 {
-    type rx_buffer = FakeRegister<Self, u8, Safe, NoAccess>;
-    fn rx_buffer(self) -> FakeRegister<Self, u8, Safe, NoAccess> {
+impl serial_registers::Interface for Fake8250 {
+    type rx_buffer<'s> = FakeRegister<&'s Self, u8, Safe, NoAccess>;
+    fn rx_buffer(&self) -> FakeRegister<&'_ Self, u8, Safe, NoAccess> {
         FakeRegister::new(self).on_read(|_| unimplemented!())
     }
 
-    type tx_buffer = FakeRegister<Self, u8, NoAccess, Safe>;
-    fn tx_buffer(self) -> FakeRegister<Self, u8, NoAccess, Safe> {
+    type tx_buffer<'s> = FakeRegister<&'s Self, u8, NoAccess, Safe>;
+    fn tx_buffer(&self) -> FakeRegister<&'_ Self, u8, NoAccess, Safe> {
         FakeRegister::new(self).on_write(|s, byte| {
             assert!(
                 !s.lcr.get().is_set(LCR::DLAB),
@@ -104,15 +104,15 @@ impl serial_registers::Interface for &Fake8250 {
         })
     }
 
-    type divisor_lsb = FakeRegister<Self, u8, Safe, Safe>;
-    fn divisor_lsb(self) -> FakeRegister<Self, u8, Safe, Safe> {
+    type divisor_lsb<'s> = FakeRegister<&'s Self, u8, Safe, Safe>;
+    fn divisor_lsb(&self) -> FakeRegister<&'_ Self, u8, Safe, Safe> {
         FakeRegister::new(self)
             .on_read(|_| unimplemented!())
             .on_write(|_, _| unimplemented!())
     }
 
-    type interrupt_enable = FakeRegister<Self, IER::Register, Safe, Safe>;
-    fn interrupt_enable(self) -> FakeRegister<Self, IER::Register, Safe, Safe> {
+    type interrupt_enable<'s> = FakeRegister<&'s Self, IER::Register, Safe, Safe>;
+    fn interrupt_enable(&self) -> FakeRegister<&'_ Self, IER::Register, Safe, Safe> {
         FakeRegister::new(self)
             .on_read(|s| {
                 assert!(
@@ -130,49 +130,49 @@ impl serial_registers::Interface for &Fake8250 {
             })
     }
 
-    type divisor_msb = FakeRegister<Self, u8, Safe, Safe>;
-    fn divisor_msb(self) -> FakeRegister<Self, u8, Safe, Safe> {
+    type divisor_msb<'s> = FakeRegister<&'s Self, u8, Safe, Safe>;
+    fn divisor_msb(&self) -> FakeRegister<&'_ Self, u8, Safe, Safe> {
         FakeRegister::new(self)
             .on_read(|_| unimplemented!())
             .on_write(|_, _| unimplemented!())
     }
 
-    type interrupt_id = FakeRegister<Self, IIR::Register, Safe, NoAccess>;
-    fn interrupt_id(self) -> FakeRegister<Self, IIR::Register, Safe, NoAccess> {
+    type interrupt_id<'s> = FakeRegister<&'s Self, IIR::Register, Safe, NoAccess>;
+    fn interrupt_id(&self) -> FakeRegister<&'_ Self, IIR::Register, Safe, NoAccess> {
         FakeRegister::new(self).on_read(|_| unimplemented!())
     }
 
-    type fifo_control = FakeRegister<Self, u8, NoAccess, Safe>;
-    fn fifo_control(self) -> FakeRegister<Self, u8, NoAccess, Safe> {
+    type fifo_control<'s> = FakeRegister<&'s Self, u8, NoAccess, Safe>;
+    fn fifo_control(&self) -> FakeRegister<&'_ Self, u8, NoAccess, Safe> {
         FakeRegister::new(self).on_write(|_, _| unimplemented!())
     }
 
-    type line_control_register = FakeRegister<Self, LCR::Register, Safe, Safe>;
-    fn line_control_register(self) -> FakeRegister<Self, LCR::Register, Safe, Safe> {
+    type line_control_register<'s> = FakeRegister<&'s Self, LCR::Register, Safe, Safe>;
+    fn line_control_register(&self) -> FakeRegister<&'_ Self, LCR::Register, Safe, Safe> {
         FakeRegister::new(self)
             .on_read(|_| unimplemented!())
             .on_write(|_, _| unimplemented!())
     }
 
-    type modem_control_register = FakeRegister<Self, u8, Safe, Safe>;
-    fn modem_control_register(self) -> FakeRegister<Self, u8, Safe, Safe> {
+    type modem_control_register<'s> = FakeRegister<&'s Self, u8, Safe, Safe>;
+    fn modem_control_register(&self) -> FakeRegister<&'_ Self, u8, Safe, Safe> {
         FakeRegister::new(self)
             .on_read(|_| unimplemented!())
             .on_write(|_, _| unimplemented!())
     }
 
-    type line_status_register = FakeRegister<Self, LSR::Register, Safe, NoAccess>;
-    fn line_status_register(self) -> FakeRegister<Self, LSR::Register, Safe, NoAccess> {
+    type line_status_register<'s> = FakeRegister<&'s Self, LSR::Register, Safe, NoAccess>;
+    fn line_status_register(&self) -> FakeRegister<&'_ Self, LSR::Register, Safe, NoAccess> {
         FakeRegister::new(self).on_read(|_| unimplemented!())
     }
 
-    type modem_status_register = FakeRegister<Self, u8, Safe, NoAccess>;
-    fn modem_status_register(self) -> FakeRegister<Self, u8, Safe, NoAccess> {
+    type modem_status_register<'s> = FakeRegister<&'s Self, u8, Safe, NoAccess>;
+    fn modem_status_register(&self) -> FakeRegister<&'_ Self, u8, Safe, NoAccess> {
         FakeRegister::new(self).on_read(|_| unimplemented!())
     }
 
-    type scratch = FakeRegister<Self, u8, Safe, Safe>;
-    fn scratch(self) -> FakeRegister<Self, u8, Safe, Safe> {
+    type scratch<'s> = FakeRegister<&'s Self, u8, Safe, Safe>;
+    fn scratch(&self) -> FakeRegister<&'_ Self, u8, Safe, Safe> {
         FakeRegister::new(self)
             .on_read(|_| unimplemented!())
             .on_write(|_, _| unimplemented!())
