@@ -142,7 +142,7 @@ edition = "2021"
 [workspace.dependencies.tock-registers]
 default-features = false
 git = "https://github.com/tock/tock-registers.git"
-branch = "main"
+branch = "jrvanwhy/mmio-panic-wrong-target"
 
 [profile.dev]
 panic = "abort"
